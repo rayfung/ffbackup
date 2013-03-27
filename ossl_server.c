@@ -39,6 +39,7 @@
 #include <string.h>
 
 #include <openssl/ssl.h>
+#include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
@@ -69,7 +70,7 @@ static int	tcp_listen( int );
 static void	ssl_service( SSL *, int );
 static void	hexdump( char *, int );
 
-int 
+int
 main( int argc, char **argv )
 {
     int c, sock_s;

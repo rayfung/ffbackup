@@ -41,6 +41,7 @@
 #include <string.h>
 
 #include <openssl/ssl.h>
+#include <openssl/bio.h>
 #include <openssl/err.h>
 
 #define	SSL_DFLT_HOST		"localhost"
@@ -65,7 +66,7 @@ static void	check_certificate( SSL *, int, char * );
 static void	client_request( SSL *, char *, int );
 static void	hexdump( char *, int );
 
-int 
+int
 main( int argc, char **argv )
 {
     int c, sock;
