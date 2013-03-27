@@ -36,16 +36,8 @@
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
-#include <openssl/rand.h>
 
 #define	SSL_DFLT_PORT	16903
-
-#define SUB_COUNTRY	"US"
-#define	SUB_ST_PROV	"California"
-#define	SUB_LOCAL	"Redwood City"
-#define	SUB_ORG		"Actian Corporation"
-#define	SUB_UNIT	"Development"
-#define	SUB_COMMON	"GCF-SSL"
 
 static char	*RESPONSE_TEMPLATE =
 	"SSL Echo Server: openssl\r\n";
