@@ -2,13 +2,13 @@ CC=gcc
 CFLAGS=-g -Wall
 LD=-lssl -lcrypto
 
-all:  ossl_client ossl_server
+all: client server
 
-ossl_client: ossl_client.o 
-	$(CC) $(CFLAGS) ossl_client.o -o ossl_client $(LD)
+client: ossl_client.c
+	$(CC) $(CFLAGS) ossl_client.c -o client $(LD)
 
-ossl_server: ossl_server.o 
-	$(CC) $(CFLAGS) ossl_server.o -o ossl_server $(LD)
+server: ossl_server.c
+	$(CC) $(CFLAGS) ossl_server.c -o server $(LD)
 
 clean:
-	rm -f *.o ossl_client ossl_server
+	rm -f client server
