@@ -5,15 +5,6 @@
  ** and responds with server header and echo's client request 
  ** between lines 'BEGIN' and 'END' (inclusive).
  **
- ** Arguments:
- **	-T		TLS v1 protocol
- **	-p <port>	Listen port number (default 16903)
- **	-c <file>	Server certificate file
- **	-k <file>	Server key file (defaults to certificate file)
- **	-P <pwd>	Password for private key (defaults to 'password')
- **	-V		Verbose
- **	-h		Help
- **
  ** Derived from an example SSL server:
  **   Created by Eric Rescorla, January 10, 2002
  **   http://www.rtfm.com/openssl-examples/
@@ -44,8 +35,8 @@ static char	*RESPONSE_TEMPLATE =
 
 extern char	*optarg;
 static BIO	*bio_err = NULL;
-static char	*password = "password";
 static int	verbose = 0;
+static char *password = "password";
 
 static int	err_exit( char * );
 static int	ssl_err_exit( char * );
@@ -62,18 +53,20 @@ int main( int argc, char **argv )
 	const SSL_METHOD *meth;
 	char *certfile = NULL;
 	char *keyfile = NULL;
+	char *cafile = NULL;
 	int tlsv1 = 0;
 	int port = SSL_DFLT_PORT;
 
-	while( (c = getopt( argc, argv, "c:hk:p:P:TV" )) != -1 )
+	while( (c = getopt( argc, argv, "c:hk:e:p:P:TV" )) != -1 )
 	{
 		switch( c )
 		{
 			case 'h':
 				printf( "-T\t\tTLS v1 protocol\n" );
 				printf( "-p <port>\tListen port number (default %d)\n", SSL_DFLT_PORT );
-				printf( "-c <file>\tServer certificate file\n" );
-				printf( "-k <file>\tServer key file (defaults to certificate file)\n" );
+				printf( "-c <file>\tCA certificate file\n" );
+				printf( "-e <file>\tCertificate file\n" );
+				printf( "-k <file>\tPrivate key file (defaults to certificate file)\n" );
 				printf( "-P <pwd>\tPassword for private key (defaults to 'password')\n" );
 				printf( "-V\t\tVerbose\n" );
 				exit(0);
@@ -83,8 +76,13 @@ int main( int argc, char **argv )
 					err_exit( "Invalid port specified" );
 				break;
 
-			case 'c':	/* Certificate File */
+			case 'e':	/* Certificate File */
 				if ( ! (certfile = strdup( optarg )) )
+					err_exit( "Out of memory" );
+				break;
+
+			case 'c':	/* CA File */
+				if ( ! (cafile = strdup( optarg )) )
 					err_exit( "Out of memory" );
 				break;
 
@@ -137,6 +135,10 @@ int main( int argc, char **argv )
 			ssl_err_exit( "Can't read key file" );
 	}
 
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+	if( cafile && !SSL_CTX_load_verify_locations(ctx, cafile, NULL))
+		ssl_err_exit("Can't read CA file");
+
 	sock_s = tcp_listen( port );
 
 	while( 1 )
@@ -159,6 +161,13 @@ int main( int argc, char **argv )
 			/* Perform SSL server accept handshake */
 			if ( SSL_accept( ssl ) <= 0 )
 				ssl_err_exit( "SSL accept error" );
+
+			/* Verify server certificate */
+			if ( SSL_get_verify_result( ssl ) != X509_V_OK )
+				ssl_err_exit( "Certificate doesn't verify" );
+
+			if ( ! SSL_get_peer_certificate( ssl ) )
+				err_exit( "No peer certificate" );
 
 			if ( verbose )
 			{
