@@ -1,18 +1,3 @@
-/*
- ** Demo SSL Echo Client
- **
- ** Connects to an SSL Server. Sends client request with
- ** header and text to be echo'd between lines 'BEGIN'
- ** and 'END' (inclusive).  Reads server response header
- ** and displays echo'd text between lines 'BEGIN' and
- ** 'END' (exclusive).
- **
- ** Derived from an example SSL server:
- **   Created by Eric Rescorla, January 10, 2002
- **   http://www.rtfm.com/openssl-examples/
- **   Copyright (C) 2001 RTFM, Inc.
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>

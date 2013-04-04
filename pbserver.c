@@ -1,16 +1,3 @@
-/*
- ** Demo SSL Echo Server
- **
- ** Establishes an SSL listen port.  Reads client text lines 
- ** and responds with server header and echo's client request 
- ** between lines 'BEGIN' and 'END' (inclusive).
- **
- ** Derived from an example SSL server:
- **   Created by Eric Rescorla, January 10, 2002
- **   http://www.rtfm.com/openssl-examples/
- **   Copyright (C) 2001 RTFM, Inc.
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
