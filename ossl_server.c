@@ -57,7 +57,7 @@ int main( int argc, char **argv )
 	int tlsv1 = 0;
 	int port = SSL_DFLT_PORT;
 
-	while( (c = getopt( argc, argv, "c:hk:e:p:P:TV" )) != -1 )
+	while( (c = getopt( argc, argv, "c:hk:e:p:P:Tv" )) != -1 )
 	{
 		switch( c )
 		{
@@ -68,7 +68,7 @@ int main( int argc, char **argv )
 				printf( "-e <file>\tCertificate file\n" );
 				printf( "-k <file>\tPrivate key file (defaults to certificate file)\n" );
 				printf( "-P <pwd>\tPassword for private key (defaults to 'password')\n" );
-				printf( "-V\t\tVerbose\n" );
+				printf( "-v\t\tVerbose\n" );
 				exit(0);
 
 			case 'p':	/* Port */
@@ -97,7 +97,7 @@ int main( int argc, char **argv )
 				break;
 
 			case 'T':  tlsv1 = 1;		break;
-			case 'V':  verbose = 1;		break;
+			case 'v':  verbose = 1;		break;
 		}
 	}
 
