@@ -22,19 +22,19 @@ extern char	*optarg;
 static BIO	*bio_err = 0;
 static int	verbose = 0;
 
-static char	*REQUEST_TEMPLATE =
+static const char *REQUEST_TEMPLATE =
 	"SSL Echo Client: openssl\r\n"
 	"BEGIN\r\n"
 	"SSL Client/Server Echo Test\r\n"
 	"Host: %s:%d\r\n"
 	"END\r\n";
 
-static int	err_exit( char * );
-static int	ssl_err_exit( char * );
+static int	err_exit( const char * );
+static int	ssl_err_exit( const char * );
 static void	sigpipe_handle( int );
-static int	tcp_connect( char *, int );
+static int	tcp_connect( const char *, int );
 static void	check_certificate( SSL *, int );
-static void	client_request( SSL *, char *, int );
+static void	client_request( SSL *, const char *, int );
 static void	hexdump( char *, int );
 
 int main( int argc, char **argv )
@@ -48,7 +48,7 @@ int main( int argc, char **argv )
 	char *cadir = NULL;
 	char *certfile = NULL;
 	char *keyfile = NULL;
-	char *host = SSL_DFLT_HOST;
+	const char *host = SSL_DFLT_HOST;
 	int port = SSL_DFLT_PORT;
 	int tlsv1 = 0;
 
@@ -178,13 +178,13 @@ int main( int argc, char **argv )
 	exit(0);
 }
 
-static int err_exit( char *string )
+static int err_exit( const char *string )
 {
 	fprintf( stderr, "%s\n", string );
 	exit(0);
 }
 
-static int ssl_err_exit( char *string )
+static int ssl_err_exit( const char *string )
 {
 	BIO_printf( bio_err, "%s\n", string );
 	ERR_print_errors( bio_err );
@@ -195,7 +195,7 @@ static void sigpipe_handle( int x )
 {
 }
 
-static int tcp_connect( char *host, int port )
+static int tcp_connect( const char *host, int port )
 {
 	struct hostent *hp;
 	struct sockaddr_in addr;
@@ -233,7 +233,7 @@ static void check_certificate( SSL *ssl, int required )
 		err_exit( "No peer certificate" );
 }
 
-static void client_request( SSL *ssl, char *host, int port )
+static void client_request( SSL *ssl, const char *host, int port )
 {
 	BIO *io, *ssl_bio;
 	char buf[ 1024 ];
@@ -345,7 +345,7 @@ static void client_request( SSL *ssl, char *host, int port )
 static void hexdump( char *buffer, int length )
 {
 	int		cnt, idx;
-	char	*digits = "0123456789ABCDEF";
+	const char *digits = "0123456789ABCDEF";
 	char	line[ 100 ];
 
 	for( idx = 0; length; length -= cnt, buffer += cnt, idx += cnt )

@@ -17,21 +17,21 @@
 
 #define	SSL_DFLT_PORT	16903
 
-static char	*RESPONSE_TEMPLATE =
+static const char *RESPONSE_TEMPLATE =
 	"SSL Echo Server: openssl\r\n";
 
 extern char	*optarg;
 static BIO	*bio_err = NULL;
 static int	verbose = 0;
-static char *password = "password";
+static const char *password = "password";
 
-static int	err_exit( char * );
-static int	ssl_err_exit( char * );
+static int	err_exit( const char * );
+static int	ssl_err_exit( const char * );
 static void	sigpipe_handle( int );
 static int	password_cb( char *, int, int, void * );
 static int	tcp_listen( int );
 static void	ssl_service( SSL *, int );
-static void	hexdump( char *, int );
+static void	hexdump( const char *, int );
 
 int main( int argc, char **argv )
 {
@@ -171,13 +171,13 @@ int main( int argc, char **argv )
 	exit(0);
 }
 
-static int err_exit( char *str )
+static int err_exit( const char *str )
 {
 	fprintf( stderr, "%s\n", str );
 	exit(0);
 }
 
-static int ssl_err_exit( char *str )
+static int ssl_err_exit( const char *str )
 {
 	BIO_printf( bio_err, "%s\n", str );
 	ERR_print_errors( bio_err );
@@ -347,10 +347,10 @@ static void ssl_service( SSL *ssl, int sock_c )
 	close( sock_c );
 }
 
-static void hexdump( char *buffer, int length )
+static void hexdump( const char *buffer, int length )
 {
 	int		cnt, idx;
-	char	*digits = "0123456789ABCDEF";
+	const char *digits = "0123456789ABCDEF";
 	char	line[ 100 ];
 
 	for( idx = 0; length; length -= cnt, buffer += cnt, idx += cnt )
