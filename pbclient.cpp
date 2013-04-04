@@ -15,8 +15,8 @@
 #include <openssl/bio.h>
 #include <openssl/err.h>
 
-#define	SSL_DFLT_HOST		"localhost"
-#define	SSL_DFLT_PORT		16903
+#define	SSL_DFLT_HOST  "localhost"
+#define	SSL_DFLT_PORT  "16903"
 
 extern char	*optarg;
 static BIO	*bio_err = 0;
@@ -32,7 +32,7 @@ static const char *REQUEST_TEMPLATE =
 static int	err_exit( const char * );
 static int	ssl_err_exit( const char * );
 static void	sigpipe_handle( int );
-static int	tcp_connect( const char *, int );
+static int	ip_connect(int type, int protocol, const char *host, const char *serv);
 static void	check_certificate( SSL *, int );
 static void	client_request( SSL *, const char *, int );
 static void	hexdump( char *, int );
@@ -49,7 +49,7 @@ int main( int argc, char **argv )
 	char *certfile = NULL;
 	char *keyfile = NULL;
 	const char *host = SSL_DFLT_HOST;
-	int port = SSL_DFLT_PORT;
+	const char *port = SSL_DFLT_PORT;
 	int tlsv1 = 0;
 
 	while( (c = getopt( argc, argv, "c:e:k:d:hp:t:Tv" )) != -1 )
@@ -73,7 +73,7 @@ int main( int argc, char **argv )
 				break;
 
 			case 'p':
-				if ( ! (port = atoi( optarg )) )
+				if ( ! (port = strdup( optarg )) )
 					err_exit( "Invalid port specified" );
 				break;
 
@@ -137,7 +137,7 @@ int main( int argc, char **argv )
 			ssl_err_exit( "Can't read key file" );
 	}
 
-	sock = tcp_connect( host, port );
+	sock = ip_connect( SOCK_STREAM, IPPROTO_TCP, host, port );
 
 	/* Associate SSL connection with server socket */
 	ssl = SSL_new( ctx );
@@ -165,7 +165,7 @@ int main( int argc, char **argv )
 		printf( "Cipher: %s\n", SSL_get_cipher( ssl ) );
 
 	/* Now make our request */
-	client_request( ssl, host, port );
+	client_request( ssl, host, atoi(port) );
 
 	/* Shutdown SSL connection */
 	if( SSL_shutdown( ssl ) != 1 )
@@ -195,27 +195,52 @@ static void sigpipe_handle( int x )
 {
 }
 
-static int tcp_connect( const char *host, int port )
+/**
+ * create a socket
+ * and connect to host:serv (TCP)
+ * or set the default destination host:serv (UDP)
+ *
+ * type: SOCK_STREAM or SOCK_DGRAM
+ * protocol: IPPROTO_TCP or IPPROTO_UDP
+ * host: host name of remote host
+ * serv: service name
+ *
+ * On success, a file descriptor for the new socket is returned
+ * On error, -1 is returned
+ */
+static int ip_connect(int type, int protocol, const char *host, const char *serv)
 {
-	struct hostent *hp;
-	struct sockaddr_in addr;
-	int sock;
+    struct addrinfo hints, *res, *saved;
+    int n, sockfd;
 
-	if ( !(hp = gethostbyname( host )) )
-		err_exit( "Couldn't resolve host" );
-
-	memset( &addr, 0, sizeof( addr ) );
-	addr.sin_addr = *(struct in_addr *)hp->h_addr_list[0];
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons( port );
-
-	if ( (sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP )) < 0 )
-		err_exit( "Couldn't create socket" );
-
-	if ( connect( sock, (struct sockaddr *)&addr, sizeof( addr ) ) < 0 )
-		err_exit( "Couldn't connect socket" );
-
-	return( sock );
+    bzero(&hints, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = type;
+    hints.ai_protocol = protocol;
+    n = getaddrinfo(host, serv, &hints, &res);
+    if(n != 0)
+    {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(n));
+        return -1;
+    }
+    saved = res;
+    while(res)
+    {
+        sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+        if(sockfd >= 0)
+        {
+            if(connect(sockfd, res->ai_addr, res->ai_addrlen) == 0)
+                break;
+        }
+        res = res->ai_next;
+    }
+    if(res == NULL)
+    {
+        perror("ip_connect");
+        sockfd = -1;
+    }
+    freeaddrinfo(saved);
+    return sockfd;
 }
 
 static void check_certificate( SSL *ssl, int required )
