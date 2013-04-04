@@ -48,7 +48,7 @@ static int	err_exit( char * );
 static int	ssl_err_exit( char * );
 static void	sigpipe_handle( int );
 static int	tcp_connect( char *, int );
-static void	check_certificate( SSL *, int, char * );
+static void	check_certificate( SSL *, int );
 static void	client_request( SSL *, char *, int );
 static void	hexdump( char *, int );
 
@@ -66,9 +66,8 @@ int main( int argc, char **argv )
 	char *host = SSL_DFLT_HOST;
 	int port = SSL_DFLT_PORT;
 	int tlsv1 = 0;
-	int verify = 0;
 
-	while( (c = getopt( argc, argv, "c:e:k:d:hp:t:TvV" )) != -1 )
+	while( (c = getopt( argc, argv, "c:e:k:d:hp:t:Tv" )) != -1 )
 	{
 		switch(c)
 		{
@@ -80,8 +79,7 @@ int main( int argc, char **argv )
 				printf( "-e <file>\tCertificate file\n" );
 				printf( "-k <file>\tPrivate key file\n" );
 				printf( "-d <dir>\tCA certificate directory\n" );
-				printf( "-v\t\tVerify host name in server certificate\n" );
-				printf( "-V\t\tVerbose\n" );
+				printf( "-v\t\tVerbose\n" );
 				exit(0);
 
 			case 't':
@@ -115,8 +113,7 @@ int main( int argc, char **argv )
 				break;
 
 			case 'T':  tlsv1 = 1;		break;
-			case 'v':  verify = 1;		break;
-			case 'V':  verbose = 1;		break;
+			case 'v':  verbose = 1;		break;
 		}
 	}
 
@@ -177,7 +174,7 @@ int main( int argc, char **argv )
 	if ( SSL_connect( ssl ) <= 0 )
 		ssl_err_exit( "SSL connect error" );
 
-	check_certificate( ssl, 1, verify ? host : NULL );
+	check_certificate( ssl, 1 );
 
 	if ( verbose )
 		printf( "Cipher: %s\n", SSL_get_cipher( ssl ) );
@@ -236,10 +233,9 @@ static int tcp_connect( char *host, int port )
 	return( sock );
 }
 
-static void check_certificate( SSL *ssl, int required, char *host )
+static void check_certificate( SSL *ssl, int required )
 {
 	X509 *peer;
-	char peer_CN[ 256 ];
 
 	/* Verify server certificate */
 	if ( SSL_get_verify_result( ssl ) != X509_V_OK )
@@ -250,20 +246,6 @@ static void check_certificate( SSL *ssl, int required, char *host )
 
 	if ( ! peer  &&  required )
 		err_exit( "No peer certificate" );
-
-	if ( peer  &&  host )
-	{
-		/* Check that certificate common name matches target host */
-		X509_NAME_get_text_by_NID( X509_get_subject_name( peer ),
-				NID_commonName, peer_CN, sizeof(peer_CN) );
-
-		if ( strcasecmp( peer_CN, host ) )
-		{
-			printf( "Common name (%s) doesn't match host name (%s)\n",
-					peer_CN, host );
-			err_exit( "Server certificate not accepted" );
-		}
-	}
 }
 
 static void client_request( SSL *ssl, char *host, int port )
