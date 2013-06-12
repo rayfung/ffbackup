@@ -4,7 +4,7 @@ LD=-lssl -lcrypto
 
 all: ffbackup-client
 
-ffbackup-client: client.cpp
+ffbackup-client: client.o
 	$(CC) $(CFLAGS) client.cpp -o ffbackup-client $(LD)
 clean:
-	rm -f ffbackup-client
+	rm -f ffbackup-client *.o
