@@ -4,3 +4,6 @@ client.crt
 client.key
 ca.crt
 demoCA/
+*.o
+ffbackup-client
+ffbackup-server
