@@ -22,20 +22,12 @@ extern char *optarg;
 static BIO  *bio_err = 0;
 static int  verbose = 0;
 
-static const char *REQUEST_TEMPLATE =
-    "SSL Echo Client: openssl\r\n"
-    "BEGIN\r\n"
-    "SSL Client/Server Echo Test\r\n"
-    "Host: %s:%d\r\n"
-    "END\r\n";
-
 static int  err_exit( const char * );
 static int  ssl_err_exit( const char * );
 static void sigpipe_handle( int );
 static int  ip_connect(int type, int protocol, const char *host, const char *serv);
 static void check_certificate( SSL *, int );
 static void client_request( SSL *, const char *, int );
-static void hexdump( char *, int );
 
 int main( int argc, char **argv )
 {
@@ -168,9 +160,12 @@ int main( int argc, char **argv )
     client_request( ssl, host, atoi(port) );
 
     /* Shutdown SSL connection */
-    if( SSL_shutdown( ssl ) != 1 )
-        ssl_err_exit( "Shutdown failed" );
-
+    if(SSL_shutdown( ssl ) == 0)
+    {
+        shutdown(sock, SHUT_WR);
+        if(SSL_shutdown(ssl) != 1)
+            fprintf(stderr, "SSL_shutdown failed\n");
+    }
     SSL_free( ssl );
     SSL_CTX_free(ctx);
     close( sock );
@@ -260,46 +255,25 @@ static void check_certificate( SSL *ssl, int required )
 
 static void client_request( SSL *ssl, const char *host, int port )
 {
-    BIO *io, *ssl_bio;
     char buf[ 1024 ];
     int r, len;
-    int echo = 0;
 
-    /* Now construct our request */
-    snprintf( buf, sizeof( buf ), REQUEST_TEMPLATE, host, port );
-    len = strlen( buf );
-
-    /* Send request to server */
-    if ( verbose )
+    while(fgets(buf, sizeof(buf), stdin) != NULL)
     {
-        printf( "Sending %d bytes: \n", len );
-        hexdump( buf, len );
-    }
+        len = strlen(buf);
+        r = SSL_write( ssl, buf, len );
+        switch( SSL_get_error( ssl, r ) )
+        {
+            case SSL_ERROR_NONE:
+                if ( len != r )
+                    err_exit("Incomplete write!");
+                break;
 
-    r = SSL_write( ssl, buf, len );
+            default:
+                ssl_err_exit( "SSL write problem" );
+        }
 
-    switch( SSL_get_error( ssl, r ) )
-    {
-        case SSL_ERROR_NONE:
-            if ( len != r )
-                err_exit("Incomplete write!");
-            break;
-
-        default:
-            ssl_err_exit( "SSL write problem" );
-    }
-
-    /* Setup SSL buffers for reading server socket */
-    io = BIO_new( BIO_f_buffer() );
-    ssl_bio = BIO_new( BIO_f_ssl() );
-    BIO_set_ssl( ssl_bio, ssl, BIO_CLOSE );
-    BIO_push( io, ssl_bio );
-
-    while(1)
-    {
-        /* Read a line from server socket */
-        r = BIO_gets( io, buf, sizeof( buf ) - 1 );
-
+        r = SSL_read( ssl, buf, sizeof( buf ) - 1 );
         switch( SSL_get_error( ssl, r ) )
         {
             case SSL_ERROR_NONE:
@@ -313,99 +287,6 @@ static void client_request( SSL *ssl, const char *host, int port )
                 ssl_err_exit( "SSL read problem" );
         }
 
-        if ( verbose )
-        {
-            printf( "Received %d: \n", len );
-            hexdump( buf, len );
-        }
-
-        /*
-         ** Display response between 'BEGIN' and 'END'
-         */
-        if ( ! echo )
-        {
-            /* Echo starts with 'BEGIN' */
-            if ( ! strcmp( buf, "BEGIN\r\n" ) || ! strcmp( buf, "BEGIN\n" ) )
-                echo = 1;
-        }
-        else
-        {
-            /* Echo finishes with 'END' */
-            if ( ! strcmp( buf, "END\r\n" )  ||  ! strcmp( buf, "END\n" ) )
-                break;
-
-            fwrite( buf, 1, len, stdout );
-        }
-    }
-
-    /*
-     ** Skip any additional response until done.
-     */
-    while(1)
-    {
-        /* Read a line from server socket */
-        r = BIO_gets( io, buf, sizeof( buf ) - 1 );
-
-        switch( SSL_get_error( ssl, r ) )
-        {
-            case SSL_ERROR_NONE:
-                len = r;
-                break;
-            case SSL_ERROR_ZERO_RETURN:
-                return;
-            case SSL_ERROR_SYSCALL:
-                ssl_err_exit( "SSL Error: Premature close" );
-            default:
-                ssl_err_exit( "SSL read problem" );
-        }
-
-        if ( verbose )
-        {
-            printf( "Received %d (extra) bytes: \n", len );
-            hexdump( buf, len );
-        }
-    }
-}
-
-static void hexdump( char *buffer, int length )
-{
-    int     cnt, idx;
-    const char *digits = "0123456789ABCDEF";
-    char    line[ 100 ];
-
-    for( idx = 0; length; length -= cnt, buffer += cnt, idx += cnt )
-    {
-        char *ptr;
-        int  i;
-
-        cnt = (length > 16) ? 16 : length;
-
-        sprintf( line, "%4.4x: ", idx );
-        ptr = line + 6;
-
-        for( i = 0; i < cnt; i++ )
-        {
-            *ptr++ = digits[ buffer[i] >> 4 ];
-            *ptr++ = digits[ buffer[i] & 0x0f ];
-            *ptr++ = (i == 7) ? ':' : ' ';
-        }
-
-        for( ; i < 16; i++ )
-        {
-            *ptr++ = ' ';
-            *ptr++ = ' ';
-            *ptr++ = ' ';
-        }
-
-        *ptr++ = ' ';
-
-        for( i = 0; i < cnt; i++ )
-            if ( buffer[i] < 32  ||  buffer[i] > 126 )
-                *ptr++ = '.';
-            else
-                *ptr++ = buffer[i];
-
-        *ptr = 0;
-        printf( "%s\n", line );
+        fwrite( buf, 1, len, stdout );
     }
 }
