@@ -10,15 +10,18 @@
 #include <signal.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/select.h>
+#include <sys/time.h>
+#include <assert.h>
 
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
 
-#define SSL_DFLT_PORT   "16903"
+#include "server.h"
+#include "task.h"
 
-static const char *RESPONSE_TEMPLATE =
-    "Your request: ";
+#define SSL_DFLT_PORT   "16903"
 
 extern char *optarg;
 static BIO  *bio_err = NULL;
@@ -30,19 +33,28 @@ static int  ssl_err_exit( const char * );
 static void sigpipe_handle( int );
 static int  password_cb( char *, int, int, void * );
 static int  tcp_listen(const char *host, const char *serv, socklen_t *len);
-static void ssl_service( SSL *, int );
 
-int main( int argc, char **argv )
+static server_config server_cfg;
+connection *conns;
+
+static void set_nonblocking(int sockfd)
 {
-    int c, sock_s;
+    int flags = fcntl(sockfd, F_GETFL);
+    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+}
+
+SSL_CTX *init_ssl(int argc, char **argv, char **host, char **port)
+{
+    int c;
     SSL_CTX *ctx;
     const SSL_METHOD *meth;
     char *certfile = NULL;
     char *keyfile = NULL;
     char *cafile = NULL;
     int tlsv1 = 0;
-    const char *host = NULL;
-    const char *port = SSL_DFLT_PORT;
+
+    *host = NULL;
+    *port = strdup(SSL_DFLT_PORT);
 
     while( (c = getopt( argc, argv, "b:c:hk:e:p:P:Tv" )) != -1 )
     {
@@ -60,12 +72,12 @@ int main( int argc, char **argv )
                 exit(0);
 
             case 'b':   /* Address */
-                if ( ! (host = strdup( optarg )) )
+                if ( ! (*host = strdup( optarg )) )
                     err_exit( "Invalid address specified" );
                 break;
 
             case 'p':   /* Port */
-                if ( ! (port = strdup( optarg )) )
+                if ( ! (*port = strdup( optarg )) )
                     err_exit( "Invalid port specified" );
                 break;
 
@@ -132,48 +144,180 @@ int main( int argc, char **argv )
     if( cafile && !SSL_CTX_load_verify_locations(ctx, cafile, NULL))
         ssl_err_exit("Can't read CA file");
 
-    sock_s = tcp_listen( host, port, NULL );
+    return ctx;
+}
 
+connection::conn_state ssl_accept_then_verify(SSL *ssl)
+{
+    int r;
+    /* Perform SSL server accept handshake */
+    r = SSL_accept( ssl );
+    switch( SSL_get_error(ssl, r) )
+    {
+        case SSL_ERROR_NONE:
+            break;
+        case SSL_ERROR_WANT_READ:
+        case SSL_ERROR_WANT_WRITE:
+            return connection::state_accepting;
+        default:
+            return connection::state_close;
+    }
+
+    /* Verify server certificate */
+    if ( SSL_get_verify_result( ssl ) != X509_V_OK ||
+            ! SSL_get_peer_certificate( ssl ) )
+        return connection::state_close;
+    else
+        return connection::state_read;
+}
+
+void main_loop(SSL_CTX *ctx, int sock_s)
+{
+    fd_set allset;
+    fd_set rset;
+    fd_set wset;
+    int maxfd;
+    int temp;
+
+    FD_ZERO(&allset);
+    FD_SET(sock_s, &allset);
+    maxfd = sock_s;
     while( 1 )
     {
         int sock_c;
+        int n;
 
-        if ( (sock_c = accept( sock_s, 0, 0 )) < 0 )
-            err_exit( "Problem accepting" );
+        rset = allset;
+        wset = allset;
+        FD_CLR(sock_s, &wset);
+        n = select(maxfd + 1, &rset, &wset, NULL, NULL);
+        if(n <= 0)
+            continue;
 
-        if ( fork() )
-            close( sock_c );
-        else
+        temp = maxfd;
+        if(FD_ISSET(sock_s, &rset))
         {
-            /* Associate SSL connection with client socket */
-            BIO *sbio = BIO_new_socket( sock_c, BIO_NOCLOSE );
-            SSL *ssl = SSL_new( ctx );
-
-            SSL_set_bio( ssl, sbio, sbio );
-
-            /* Perform SSL server accept handshake */
-            if ( SSL_accept( ssl ) <= 0 )
-                ssl_err_exit( "SSL accept error" );
-
-            /* Verify server certificate */
-            if ( SSL_get_verify_result( ssl ) != X509_V_OK )
-                ssl_err_exit( "Certificate doesn't verify" );
-
-            if ( ! SSL_get_peer_certificate( ssl ) )
-                err_exit( "No peer certificate" );
-
-            if ( verbose )
+            --n;
+            FD_CLR(sock_s, &rset);
+            while(1)
             {
-                printf( "Cipher: %s\n", SSL_get_cipher( ssl ) );
-            }
+                if ( (sock_c = accept( sock_s, NULL, NULL )) < 0 )
+                    break;
+                if(sock_c >= server_cfg.max_connection)
+                {
+                    close(sock_c);
+                    break;
+                }
 
-            ssl_service( ssl, sock_c );
-            exit(0);
+                set_nonblocking(sock_c);
+
+                /* Associate SSL connection with client socket */
+                BIO *sbio = BIO_new_socket( sock_c, BIO_NOCLOSE );
+                SSL *ssl = SSL_new( ctx );
+
+                SSL_set_bio( ssl, sbio, sbio );
+
+                conns[sock_c].sockfd = sock_c;
+                conns[sock_c].ssl = ssl;
+                conns[sock_c].state = ssl_accept_then_verify(ssl);
+                conns[sock_c].buffer = NULL;
+                conns[sock_c].len = 0;
+                conns[sock_c].pos = 0;
+                if(conns[sock_c].state == connection::state_close)
+                {
+                    conns[sock_c].sockfd = -1;
+                    close(sock_c);
+                    SSL_free(ssl);
+                    fprintf(stderr, "failed to accept or verify\n");
+                }
+                else
+                {
+                    FD_SET(sock_c, &allset);
+                    if(sock_c > temp)
+                        temp = sock_c;
+                }
+            }
         }
+
+        /* accepted sockfd */
+        for(int i = 0; i <= maxfd && n > 0; ++i)
+        {
+            bool r_ok = false, w_ok = false;
+            if(FD_ISSET(i, &rset))
+            {
+                --n;
+                r_ok = true;
+            }
+            if(FD_ISSET(i, &wset))
+            {
+                --n;
+                w_ok = true;
+            }
+            if(r_ok || w_ok)
+            {
+                switch(conns[i].state)
+                {
+                    case connection::state_accepting:
+                        fprintf(stderr, "accepting, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                        conns[i].state = ssl_accept_then_verify(conns[i].ssl);
+                        if(conns[i].state == connection::state_read)
+                            fprintf(stderr, "accepted, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                        break;
+                    case connection::state_read:
+                        if(r_ok)
+                        {
+                            fprintf(stderr, "before read, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                            conns[i].state = read_task(i);
+                            fprintf(stderr, "after read, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                        }
+                        break;
+                    case connection::state_write:
+                        if(w_ok)
+                        {
+                            fprintf(stderr, "before write, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                            conns[i].state = write_task(i);
+                            fprintf(stderr, "after write, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                        }
+                        break;
+                    default:
+                        break;
+                }
+
+                if(conns[i].state == connection::state_close)
+                {
+                    conns[i].sockfd = -1;
+                    close(i);
+                    SSL_free(conns[i].ssl);
+                    FD_CLR(i, &allset);
+                    fprintf(stderr, "close, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                }
+            }
+        }
+        maxfd = temp;
     }
+}
+
+int main( int argc, char **argv )
+{
+    int sock_s;
+    char *host, *port;
+    SSL_CTX *ctx;
+
+    server_cfg.max_connection = 256;
+    conns = new connection[server_cfg.max_connection];
+    assert(conns != NULL);
+    for(int i = 0; i < server_cfg.max_connection; ++i)
+        conns[i].sockfd = -1;
+
+    ctx = init_ssl(argc, argv, &host, &port);
+    sock_s = tcp_listen( host, port, NULL );
+    set_nonblocking(sock_s);
+
+    main_loop(ctx, sock_s);
 
     /* Free SSL context */
     SSL_CTX_free( ctx );
+    delete[] conns;
     exit(0);
 }
 
@@ -263,46 +407,4 @@ int tcp_listen(const char *host, const char *serv, socklen_t *len)
         freeaddrinfo(saved);
         return listenfd;
     }
-}
-
-static void ssl_service( SSL *ssl, int sock_c )
-{
-    char ibuff[ 1024 ];
-    char obuff[ 1024 ];
-    int len, r;
-
-    while(1)
-    {
-        r = SSL_read(ssl, ibuff, sizeof(ibuff) - 1);
-        switch( SSL_get_error( ssl, r ) )
-        {
-            case SSL_ERROR_NONE:
-                len = r;
-                break;
-            case SSL_ERROR_ZERO_RETURN:
-                len = 0;
-                break;
-            default:
-                ssl_err_exit( "SSL read problem" );
-        }
-
-        if(len == 0)
-            break;
-
-        ibuff[len] = '\0';
-        snprintf(obuff, sizeof(obuff), "%s%s\r\n", RESPONSE_TEMPLATE, ibuff);
-        r = SSL_write(ssl, obuff, strlen(obuff));
-        switch( SSL_get_error( ssl, r ) )
-        {
-            case SSL_ERROR_NONE:
-                len = r;
-                break;
-            default:
-                ssl_err_exit( "SSL write problem" );
-        }
-    }
-
-    r = SSL_shutdown( ssl );
-    SSL_free( ssl );
-    close( sock_c );
 }
