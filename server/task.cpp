@@ -19,10 +19,9 @@ connection::conn_state read_task(int sockfd)
     char buffer[16];
     int i;
 
-    fprintf(stderr, "entering read_task(%d)\n", sockfd);
     do
     {
-        fprintf(stderr, "entering read_task(%d)::while\n", sockfd);
+        fprintf(stderr, "do-while in read_task(%d)\n", sockfd);
         ret = SSL_read(ssl, buffer, 16);
         switch( SSL_get_error( ssl, ret ) )
         {
@@ -46,7 +45,6 @@ connection::conn_state read_task(int sockfd)
             conns[sockfd].buffer[conns[sockfd].len + i] = buffer[i];
         conns[sockfd].len += len;
     }while(SSL_pending(ssl));
-    fprintf(stderr, "leaving read_task(%d)\n", sockfd);
     if(conns[sockfd].len > 0)
     {
         conns[sockfd].pos = 0;
@@ -61,7 +59,6 @@ connection::conn_state write_task(int sockfd)
     SSL *ssl = conns[sockfd].ssl;
     int ret;
     int len;
-    fprintf(stderr, "entering write_task(%d)\n", sockfd);
     ret = SSL_write(ssl, conns[sockfd].buffer + conns[sockfd].pos, conns[sockfd].len);
     switch( SSL_get_error( ssl, ret ) )
     {

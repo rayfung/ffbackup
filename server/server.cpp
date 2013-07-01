@@ -171,6 +171,16 @@ connection::conn_state ssl_accept_then_verify(SSL *ssl)
         return connection::state_read;
 }
 
+void clean_up_connection(int sockfd)
+{
+    conns[sockfd].sockfd = -1;
+    SSL_shutdown(conns[sockfd].ssl);
+    close(sockfd);
+    SSL_free(conns[sockfd].ssl);
+    free(conns[sockfd].buffer);
+    conns[sockfd].buffer = NULL;
+}
+
 void main_loop(SSL_CTX *ctx, int sock_s)
 {
     fd_set allset;
@@ -225,9 +235,7 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                 conns[sock_c].pos = 0;
                 if(conns[sock_c].state == connection::state_close)
                 {
-                    conns[sock_c].sockfd = -1;
-                    close(sock_c);
-                    SSL_free(ssl);
+                    clean_up_connection(sock_c);
                     fprintf(stderr, "failed to accept or verify\n");
                 }
                 else
@@ -261,14 +269,14 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                         fprintf(stderr, "accepting, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
                         conns[i].state = ssl_accept_then_verify(conns[i].ssl);
                         if(conns[i].state == connection::state_read)
-                            fprintf(stderr, "accepted, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                            fprintf(stderr, "accepted, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
                         break;
                     case connection::state_read:
                         if(r_ok)
                         {
                             fprintf(stderr, "before read, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
                             conns[i].state = read_task(i);
-                            fprintf(stderr, "after read, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                            fprintf(stderr, "after read, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
                         }
                         break;
                     case connection::state_write:
@@ -276,7 +284,7 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                         {
                             fprintf(stderr, "before write, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
                             conns[i].state = write_task(i);
-                            fprintf(stderr, "after write, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                            fprintf(stderr, "after write, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
                         }
                         break;
                     default:
@@ -285,11 +293,9 @@ void main_loop(SSL_CTX *ctx, int sock_s)
 
                 if(conns[i].state == connection::state_close)
                 {
-                    conns[i].sockfd = -1;
-                    close(i);
-                    SSL_free(conns[i].ssl);
+                    clean_up_connection(i);
                     FD_CLR(i, &allset);
-                    fprintf(stderr, "close, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                    fprintf(stderr, "close, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
                 }
             }
         }
