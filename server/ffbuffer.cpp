@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include "ffbuffer.h"
 
@@ -16,6 +17,18 @@ ffbuffer::ffbuffer()
 ffbuffer::~ffbuffer()
 {
     this->clear();
+}
+
+void ffbuffer::print_chunk_info()
+{
+    ffchunk *ptr = this->head_ptr;
+    int n = 1;
+    while(ptr != NULL)
+    {
+        printf("chunk #%d: %d bytes\n", n, ptr->size);
+        ++n;
+        ptr = ptr->link;
+    }
 }
 
 /* free all the memory used by this ffbuffer object */
@@ -98,6 +111,7 @@ void ffbuffer::pop_front(size_t size)
             memmove(this->head_ptr->data,
                     this->head_ptr->data + size,
                     this->head_ptr->size - size);
+            this->head_ptr->size -= size;
             size = 0;
         }
     }
@@ -115,20 +129,39 @@ void ffbuffer::pop_front(size_t size)
 size_t ffbuffer::get(void *buf, size_t pos, size_t size)
 {
     ffchunk *ptr;
-    size_t ret;
+    size_t i; /* iterator of buf */
+    if(pos >= this->buffer_size)
+        return 0;
     if(pos + size > this->buffer_size)
         size = this->buffer_size - pos;
-    ret = size;
     ptr = this->head_ptr;
-    while(size > 0)
+    i = 0;
+    while(pos > 0)
+    {
+        if(pos >= ptr->size)
+        {
+            pos -= ptr->size;
+            ptr = ptr->link;
+        }
+        else
+        {
+            size_t n = ptr->size - pos;
+            if(n > size)
+                n = size;
+            memcpy((unsigned char *)buf + i, ptr->data + pos, n);
+            ptr = ptr->link;
+            i += n;
+            break;
+        }
+    }
+    while(i < size)
     {
         size_t n = ptr->size;
-        if(n > size)
-            n = size;
-        size -= n;
-        memcpy((unsigned char *)buf + pos, ptr->data, n);
-        pos += n;
+        if(n > size - i)
+            n = size - i;
+        memcpy((unsigned char *)buf + i, ptr->data, n);
+        i += n;
         ptr = ptr->link;
     }
-    return ret;
+    return size;
 }

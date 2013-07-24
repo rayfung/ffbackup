@@ -24,6 +24,7 @@ public:
     void pop_front(size_t size);
     size_t get(void *buf, size_t pos, size_t size);
     void clear();
+    void print_chunk_info();
 
 private:
     size_t buffer_size;
