@@ -78,6 +78,13 @@ void put_many_data()
     printf("now, buffer info:\n");
     buffer.print_chunk_info();
 
+    printf("remove 128 bytes from the buffer\n");
+    buffer.pop_front(128);
+    printf("now, there are %d bytes in the buffer\n", buffer.get_size());
+
+    printf("now, buffer info:\n");
+    buffer.print_chunk_info();
+
     printf("remove 65 bytes from the buffer\n");
     buffer.pop_front(65);
     printf("now, there are %d bytes in the buffer\n", buffer.get_size());
