@@ -16,13 +16,13 @@ connection::conn_state read_task(int sockfd)
     SSL *ssl = conns[sockfd].ssl;
     int len = 0;
     int ret;
-    char buffer[16];
+    char buffer[2048];
     int i;
 
     do
     {
         fprintf(stderr, "do-while in read_task(%d)\n", sockfd);
-        ret = SSL_read(ssl, buffer, 16);
+        ret = SSL_read(ssl, buffer, sizeof(buffer));
         switch( SSL_get_error( ssl, ret ) )
         {
             case SSL_ERROR_NONE:
