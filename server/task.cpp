@@ -17,7 +17,6 @@ connection::conn_state read_task(int sockfd)
     int len = 0;
     int ret;
     char buffer[2048];
-    int i;
 
     do
     {
@@ -30,26 +29,17 @@ connection::conn_state read_task(int sockfd)
                 break;
             case SSL_ERROR_WANT_READ:
             case SSL_ERROR_WANT_WRITE:
-                if(conns[sockfd].len > 0)
-                {
-                    conns[sockfd].pos = 0;
+                if(conns[sockfd].buffer.get_size() > 0)
                     return connection::state_write;
-                }
                 else
                     return connection::state_read;
             default:
                 return connection::state_close;
         }
-        conns[sockfd].buffer = (char *)realloc(conns[sockfd].buffer, conns[sockfd].len + len);
-        for(i = 0; i < len; ++i)
-            conns[sockfd].buffer[conns[sockfd].len + i] = buffer[i];
-        conns[sockfd].len += len;
+        conns[sockfd].buffer.push_back(buffer, len);
     }while(SSL_pending(ssl));
-    if(conns[sockfd].len > 0)
-    {
-        conns[sockfd].pos = 0;
+    if(conns[sockfd].buffer.get_size() > 0)
         return connection::state_write;
-    }
     else
         return connection::state_read;
 }
@@ -59,7 +49,9 @@ connection::conn_state write_task(int sockfd)
     SSL *ssl = conns[sockfd].ssl;
     int ret;
     int len;
-    ret = SSL_write(ssl, conns[sockfd].buffer + conns[sockfd].pos, conns[sockfd].len);
+    char buffer[1024];
+    len = conns[sockfd].buffer.get(buffer, 0, sizeof(buffer));
+    ret = SSL_write(ssl, buffer, len);
     switch( SSL_get_error( ssl, ret ) )
     {
         case SSL_ERROR_NONE:
@@ -72,15 +64,11 @@ connection::conn_state write_task(int sockfd)
         default:
             return connection::state_close;
     }
-    conns[sockfd].pos += len;
-    conns[sockfd].len -= len;
-    if(conns[sockfd].len > 0)
+    conns[sockfd].buffer.pop_front(len);
+    if(conns[sockfd].buffer.get_size() > 0)
         return connection::state_write;
     else
-    {
-        conns[sockfd].len = 0;
         return connection::state_read;
-    }
 }
 #if 0
 static void ssl_service( SSL *ssl, int sock_c )

@@ -20,6 +20,7 @@
 
 #include "server.h"
 #include "task.h"
+#include "ffbuffer.h"
 
 #define SSL_DFLT_PORT   "16903"
 
@@ -177,8 +178,7 @@ void clean_up_connection(int sockfd)
     SSL_shutdown(conns[sockfd].ssl);
     close(sockfd);
     SSL_free(conns[sockfd].ssl);
-    free(conns[sockfd].buffer);
-    conns[sockfd].buffer = NULL;
+    conns[sockfd].buffer.clear();
 }
 
 void main_loop(SSL_CTX *ctx, int sock_s)
@@ -230,9 +230,7 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                 conns[sock_c].sockfd = sock_c;
                 conns[sock_c].ssl = ssl;
                 conns[sock_c].state = ssl_accept_then_verify(ssl);
-                conns[sock_c].buffer = NULL;
-                conns[sock_c].len = 0;
-                conns[sock_c].pos = 0;
+                conns[sock_c].buffer.clear();
                 if(conns[sock_c].state == connection::state_close)
                 {
                     clean_up_connection(sock_c);
