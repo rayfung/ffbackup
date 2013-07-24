@@ -61,8 +61,10 @@ void put_some_small_data()
 void put_many_data()
 {
     ffbuffer buffer;
-    char data[] = "Welcome to Linux\t";
+    char data[] = "Welcome to Linux;";
+    char *large_data = NULL;
     int n = 200;
+    size_t size;
 
     puts("================ put_many_data ===================");
     printf("put string \"%s\" %d times(not including null terminator)\n", data, n);
@@ -73,9 +75,15 @@ void put_many_data()
     printf("%d bytes data have already put into the buffer\n", n * (sizeof(data) - 1) + 1);
     printf("now, there are %d bytes in the buffer\n", buffer.get_size());
 
+    printf("now, buffer info:\n");
+    buffer.print_chunk_info();
+
     printf("remove 65 bytes from the buffer\n");
     buffer.pop_front(65);
     printf("now, there are %d bytes in the buffer\n", buffer.get_size());
+
+    printf("now, buffer info:\n");
+    buffer.print_chunk_info();
 
     printf("remove 8900 bytes from the buffer\n");
     buffer.pop_front(8900);
@@ -83,10 +91,43 @@ void put_many_data()
     puts("==================================================");
 }
 
+void random_read()
+{
+    ffbuffer buf;
+    char data[] = "Linux";
+    char large_data[99];
+    size_t n;
+    int k = 100;
+    int pos;
+
+    puts("================ random_read ==================");
+    n = strlen(data);
+    for(int i = 0; i < k; ++i)
+        buf.push_back(data, n);
+    printf("put %d bytes data into buffer\n", n * k);
+    printf("now, there are %d bytes in the buffer\n", buf.get_size());
+    n = buf.get(large_data, 66, sizeof(large_data));
+    printf("get %d bytes from offset 66\n", sizeof(large_data));
+    printf("%.*s", n, large_data);
+    printf("\n");
+
+    n = buf.get_size();
+    printf("print all the data(%d bytes):\n", n);
+    pos = 0;
+    while((n = buf.get(large_data, pos, sizeof(large_data))) > 0)
+    {
+        printf("%.*s", n, large_data);
+        pos += n;
+    }
+    printf("\n");
+    puts("===============================================");
+}
+
 int main()
 {
     normal();
     put_some_small_data();
     put_many_data();
+    random_read();
     return 0;
 }
