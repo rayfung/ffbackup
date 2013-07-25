@@ -145,6 +145,9 @@ SSL_CTX *init_ssl(int argc, char **argv, char **host, char **port)
     if( cafile && !SSL_CTX_load_verify_locations(ctx, cafile, NULL))
         ssl_err_exit("Can't read CA file");
 
+    /* make it possible to retry SSL_write() with different buffer
+     * which contains the same content */
+    SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
     return ctx;
 }
 
