@@ -3,6 +3,8 @@
 
 #define CHUNK_MAX_SIZE 64
 
+#include <sys/types.h>
+
 class ffchunk
 {
 public:
