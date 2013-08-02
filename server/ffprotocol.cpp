@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "ffprotocol.h"
 #include "server.h"
 #include "ffbuffer.h"
@@ -36,6 +37,7 @@ no_operation::~no_operation()
 int no_operation::update(connection *conn)
 {
     char buf[] = "FFBackup\n";
+    fprintf(stderr, "generating %s\n", buf);
     conn->out_buffer.push_back(buf, sizeof(buf) - 1);
     return FF_DONE;
 }
@@ -62,7 +64,9 @@ void ffprotocol::update(connection *conn)
             if(task.cmd)
                 delete task.cmd;
             this->task_queue.pop();
-            if(!this->task_queue.empty())
+            if(this->task_queue.empty())
+                this->event = FF_ON_READ;
+            else
                 this->event = this->task_queue.front().initial_event;
         }
         else if(ret == FF_ERROR)
@@ -77,6 +81,7 @@ void ffprotocol::update(connection *conn)
         fftask task;
 
         conn->in_buffer.get(hdr, 0, 2);
+        conn->in_buffer.pop_front(2);
         task.version = hdr[0];
         switch(hdr[1])
         {
