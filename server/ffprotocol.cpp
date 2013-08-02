@@ -25,20 +25,24 @@ int cli_start_bak::update(connection *conn)
     return FF_DONE;
 }
 
-fftask::fftask()
+no_operation::no_operation()
 {
-    this->version = -1;
-    this->cmd = NULL;
-    this->events = 0;
 }
 
-fftask::~fftask()
+no_operation::~no_operation()
 {
-    delete this->cmd;
+}
+
+int no_operation::update(connection *conn)
+{
+    char buf[] = "FFBackup\n";
+    conn->out_buffer.push_back(buf, sizeof(buf) - 1);
+    return FF_DONE;
 }
 
 ffprotocol::ffprotocol()
 {
+    this->event = FF_ON_READ;
 }
 
 ffprotocol::~ffprotocol()
@@ -46,7 +50,7 @@ ffprotocol::~ffprotocol()
     this->reset();
 }
 
-int ffprotocol::update(connection *conn)
+void ffprotocol::update(connection *conn)
 {
     if(this->task_queue.size() > 0)
     {
@@ -54,13 +58,20 @@ int ffprotocol::update(connection *conn)
         fftask task = this->task_queue.front();
         ret = task.cmd->update(conn);
         if(ret == FF_DONE)
+        {
+            if(task.cmd)
+                delete task.cmd;
             this->task_queue.pop();
-        return ret;
+            if(!this->task_queue.empty())
+                this->event = this->task_queue.front().initial_event;
+        }
+        else if(ret == FF_ERROR)
+            conn->state = connection::state_close;
     }
     else
     {
         if(conn->in_buffer.get_size() < 2)
-            return FF_AGAIN;
+            return;
 
         unsigned char hdr[2] = {0, 0};
         fftask task;
@@ -69,15 +80,20 @@ int ffprotocol::update(connection *conn)
         task.version = hdr[0];
         switch(hdr[1])
         {
+            case 0x00:
+                task.cmd = new no_operation();
+                task.initial_event = FF_ON_WRITE;
+                break;
             case 0x01:
                 task.cmd = new cli_start_bak();
-                task.events = FF_ON_READ;
+                task.initial_event = FF_ON_READ;
                 break;
             default:
-                return FF_ERROR;
+                conn->state = connection::state_close;
+                return;
         }
         this->append_task(task);
-        return FF_AGAIN;
+        this->event = task.initial_event;
     }
 }
 
@@ -86,10 +102,23 @@ void ffprotocol::append_task(fftask task)
     this->task_queue.push(task);
 }
 
+bool ffprotocol::wait_for_readable()
+{
+    return (this->event == FF_ON_READ);
+}
+bool ffprotocol::wait_for_writable()
+{
+    return (this->event == FF_ON_WRITE);
+}
+
 void ffprotocol::reset()
 {
+    this->event = FF_ON_READ;
     while(!this->task_queue.empty())
     {
+        fftask task = this->task_queue.front();
+        if(task.cmd)
+            delete task.cmd;
         this->task_queue.pop();
     }
 }

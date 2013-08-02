@@ -12,7 +12,6 @@
 
 #define FF_ON_READ 1
 #define FF_ON_WRITE 2
-#define FF_ON_TIMEOUT 4
 
 class connection;
 
@@ -41,16 +40,20 @@ private:
         state_recv_type, state_recv_hash} state;
 };
 
+class no_operation : public ffcmd
+{
+public:
+    no_operation();
+    ~no_operation();
+    int update(connection *conn);
+};
+
 class fftask
 {
 public:
-    fftask();
-    ~fftask();
-
-public:
     int version;
     ffcmd *cmd;
-    int events; //触发此任务的事件（可读、可写、超时）
+    int initial_event;
 };
 
 class ffprotocol
@@ -58,11 +61,14 @@ class ffprotocol
 public:
     ffprotocol();
     ~ffprotocol();
-    int update(connection *conn);
+    void update(connection *conn);
     void reset();
     void append_task(fftask task);
+    bool wait_for_readable();
+    bool wait_for_writable();
 
 private:
+    int event;
     std::queue<fftask> task_queue;
 };
 
