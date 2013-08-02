@@ -1,7 +1,12 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include <openssl/ssl.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
 #include "ffbuffer.h"
+
+class ffprotocol;
 
 class connection
 {
@@ -10,12 +15,11 @@ public:
     int sockfd;
     enum conn_state
     {
-        state_accepting, state_close, state_done,
-        state_recv_request_hdr, state_recv_request_body,
-        state_recv_response_hdr, state_recv_response_body
+        state_accepting, state_close, state_processing,
     } state;
-    int op;
-    ffbuffer buffer;
+    ffprotocol processor;
+    ffbuffer in_buffer;
+    ffbuffer out_buffer;
 };
 
 class server_config

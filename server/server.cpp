@@ -14,10 +14,7 @@
 #include <sys/time.h>
 #include <assert.h>
 
-#include <openssl/ssl.h>
-#include <openssl/bio.h>
-#include <openssl/err.h>
-
+#include "ffprotocol.h"
 #include "server.h"
 #include "task.h"
 #include "ffbuffer.h"
@@ -172,7 +169,7 @@ connection::conn_state ssl_accept_then_verify(SSL *ssl)
             ! SSL_get_peer_certificate( ssl ) )
         return connection::state_close;
     else
-        return connection::state_recv_request_hdr;
+        return connection::state_processing;
 }
 
 void clean_up_connection(int sockfd)
@@ -181,7 +178,9 @@ void clean_up_connection(int sockfd)
     SSL_shutdown(conns[sockfd].ssl);
     close(sockfd);
     SSL_free(conns[sockfd].ssl);
-    conns[sockfd].buffer.clear();
+    conns[sockfd].processor.reset();
+    conns[sockfd].in_buffer.clear();
+    conns[sockfd].out_buffer.clear();
 }
 
 void main_loop(SSL_CTX *ctx, int sock_s)
@@ -233,7 +232,9 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                 conns[sock_c].sockfd = sock_c;
                 conns[sock_c].ssl = ssl;
                 conns[sock_c].state = ssl_accept_then_verify(ssl);
-                conns[sock_c].buffer.clear();
+                conns[sock_c].processor.reset();
+                conns[sock_c].in_buffer.clear();
+                conns[sock_c].out_buffer.clear();
                 if(conns[sock_c].state == connection::state_close)
                 {
                     clean_up_connection(sock_c);
@@ -268,35 +269,18 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                 if(conns[i].state == connection::state_accepting)
                 {
                     conns[i].state = ssl_accept_then_verify(conns[i].ssl);
-                    if(conns[i].state == connection::state_recv_request_hdr)
+                    if(conns[i].state == connection::state_processing)
                         fprintf(stderr, "accepted, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
-                    goto check_state;
                 }
-            }
-
-            if(r_ok)
-            {
-                switch(conns[i].state)
+                else if(conns[i].state == connection::state_processing)
                 {
-                    case connection::state_recv_request_hdr:
-                    case connection::state_recv_request_body:
-                    case connection::state_recv_response_hdr:
-                    case connection::state_recv_response_body:
-                        fprintf(stderr, "before read, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                    if(r_ok)
                         read_task(i);
-                        fprintf(stderr, "after read, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
-                        break;
-                    default:
-                        break;
+                    if(w_ok)
+                        write_task(i);
                 }
             }
 
-            if(w_ok)
-            {
-                write_task(i);
-            }
-
-check_state:
             if(conns[i].state == connection::state_close)
             {
                 clean_up_connection(i);

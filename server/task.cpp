@@ -4,10 +4,9 @@
 #include <openssl/bio.h>
 #include <openssl/err.h>
 
+#include "ffprotocol.h"
 #include "server.h"
 #include "task.h"
-
-using namespace std;
 
 extern connection *conns;
 
@@ -34,7 +33,8 @@ void read_task(int sockfd)
                 conns[sockfd].state = connection::state_close;
                 return;
         }
-        conns[sockfd].buffer.push_back(buffer, len);
+        conns[sockfd].in_buffer.push_back(buffer, len);
+        conns[sockfd].processor.update(&conns[sockfd]);
     }while(SSL_pending(ssl));
 }
 
@@ -45,13 +45,13 @@ void write_task(int sockfd)
     int len;
     char buffer[1024];
 
-    len = conns[sockfd].buffer.get_size();
+    len = conns[sockfd].out_buffer.get_size();
     if(len == 0)
         return;
 
     fprintf(stderr, "write buffer size = %d\n", len);
 
-    len = conns[sockfd].buffer.get(buffer, 0, sizeof(buffer));
+    len = conns[sockfd].out_buffer.get(buffer, 0, sizeof(buffer));
     ret = SSL_write(ssl, buffer, len);
     switch( SSL_get_error( ssl, ret ) )
     {
@@ -66,7 +66,7 @@ void write_task(int sockfd)
             conns[sockfd].state = connection::state_close;
             return;
     }
-    conns[sockfd].buffer.pop_front(len);
+    conns[sockfd].out_buffer.pop_front(len);
 }
 #if 0
 static void ssl_service( SSL *ssl, int sock_c )
