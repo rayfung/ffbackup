@@ -9,7 +9,12 @@ public:
     SSL *ssl;
     int sockfd;
     enum conn_state
-    {state_accepting, state_read, state_write, state_close} state;
+    {
+        state_accepting, state_close, state_done,
+        state_recv_request_hdr, state_recv_request_body,
+        state_recv_response_hdr, state_recv_response_body
+    } state;
+    int op;
     ffbuffer buffer;
 };
 

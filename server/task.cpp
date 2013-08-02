@@ -11,7 +11,7 @@ using namespace std;
 
 extern connection *conns;
 
-connection::conn_state read_task(int sockfd)
+void read_task(int sockfd)
 {
     SSL *ssl = conns[sockfd].ssl;
     int len = 0;
@@ -29,27 +29,28 @@ connection::conn_state read_task(int sockfd)
                 break;
             case SSL_ERROR_WANT_READ:
             case SSL_ERROR_WANT_WRITE:
-                if(conns[sockfd].buffer.get_size() > 0)
-                    return connection::state_write;
-                else
-                    return connection::state_read;
+                return;
             default:
-                return connection::state_close;
+                conns[sockfd].state = connection::state_close;
+                return;
         }
         conns[sockfd].buffer.push_back(buffer, len);
     }while(SSL_pending(ssl));
-    if(conns[sockfd].buffer.get_size() > 0)
-        return connection::state_write;
-    else
-        return connection::state_read;
 }
 
-connection::conn_state write_task(int sockfd)
+void write_task(int sockfd)
 {
     SSL *ssl = conns[sockfd].ssl;
     int ret;
     int len;
     char buffer[1024];
+
+    len = conns[sockfd].buffer.get_size();
+    if(len == 0)
+        return;
+
+    fprintf(stderr, "write buffer size = %d\n", len);
+
     len = conns[sockfd].buffer.get(buffer, 0, sizeof(buffer));
     ret = SSL_write(ssl, buffer, len);
     switch( SSL_get_error( ssl, ret ) )
@@ -62,13 +63,10 @@ connection::conn_state write_task(int sockfd)
             len = 0;
             break;
         default:
-            return connection::state_close;
+            conns[sockfd].state = connection::state_close;
+            return;
     }
     conns[sockfd].buffer.pop_front(len);
-    if(conns[sockfd].buffer.get_size() > 0)
-        return connection::state_write;
-    else
-        return connection::state_read;
 }
 #if 0
 static void ssl_service( SSL *ssl, int sock_c )

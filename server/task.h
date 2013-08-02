@@ -1,7 +1,7 @@
 #ifndef TASK_H
 #define TASK_H
 
-connection::conn_state read_task(int sockfd);
-connection::conn_state write_task(int sockfd);
+void read_task(int sockfd);
+void write_task(int sockfd);
 
 #endif

@@ -172,7 +172,7 @@ connection::conn_state ssl_accept_then_verify(SSL *ssl)
             ! SSL_get_peer_certificate( ssl ) )
         return connection::state_close;
     else
-        return connection::state_read;
+        return connection::state_recv_request_hdr;
 }
 
 void clean_up_connection(int sockfd)
@@ -262,42 +262,46 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                 --n;
                 w_ok = true;
             }
+
             if(r_ok || w_ok)
+            {
+                if(conns[i].state == connection::state_accepting)
+                {
+                    conns[i].state = ssl_accept_then_verify(conns[i].ssl);
+                    if(conns[i].state == connection::state_recv_request_hdr)
+                        fprintf(stderr, "accepted, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
+                    goto check_state;
+                }
+            }
+
+            if(r_ok)
             {
                 switch(conns[i].state)
                 {
-                    case connection::state_accepting:
-                        fprintf(stderr, "accepting, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
-                        conns[i].state = ssl_accept_then_verify(conns[i].ssl);
-                        if(conns[i].state == connection::state_read)
-                            fprintf(stderr, "accepted, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
-                        break;
-                    case connection::state_read:
-                        if(r_ok)
-                        {
-                            fprintf(stderr, "before read, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
-                            conns[i].state = read_task(i);
-                            fprintf(stderr, "after read, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
-                        }
-                        break;
-                    case connection::state_write:
-                        if(w_ok)
-                        {
-                            fprintf(stderr, "before write, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
-                            conns[i].state = write_task(i);
-                            fprintf(stderr, "after write, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
-                        }
+                    case connection::state_recv_request_hdr:
+                    case connection::state_recv_request_body:
+                    case connection::state_recv_response_hdr:
+                    case connection::state_recv_response_body:
+                        fprintf(stderr, "before read, %d r=%d w=%d\n", i, (int)r_ok, (int)w_ok);
+                        read_task(i);
+                        fprintf(stderr, "after read, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
                         break;
                     default:
                         break;
                 }
+            }
 
-                if(conns[i].state == connection::state_close)
-                {
-                    clean_up_connection(i);
-                    FD_CLR(i, &allset);
-                    fprintf(stderr, "close, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
-                }
+            if(w_ok)
+            {
+                write_task(i);
+            }
+
+check_state:
+            if(conns[i].state == connection::state_close)
+            {
+                clean_up_connection(i);
+                FD_CLR(i, &allset);
+                fprintf(stderr, "close, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
             }
         }
         maxfd = temp;
