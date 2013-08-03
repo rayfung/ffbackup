@@ -4,8 +4,8 @@ LD=-lssl -lcrypto
 
 all: ffbackup-server
 
-ffbackup-server: server.o task.o ffbuffer.o ffprotocol.o
-	$(CC) $(CFLAGS) server.o task.o ffbuffer.o ffprotocol.o -o ffbackup-server $(LD)
+ffbackup-server: server.o task.o ffbuffer.o ffprotocol.o helper.o
+	$(CC) $(CFLAGS) server.o task.o ffbuffer.o ffprotocol.o helper.o -o ffbackup-server $(LD)
 
 server.o: server.cpp server.h task.h ffbuffer.h
 	$(CC) $(CFLAGS) -c server.cpp -o server.o $(LD)
@@ -18,6 +18,9 @@ ffbuffer.o: ffbuffer.cpp ffbuffer.h
 
 ffprotocol.o: ffprotocol.cpp ffprotocol.h ffbuffer.h data_types.h
 	$(CC) $(CFLAGS) -c ffprotocol.cpp -o ffprotocol.o $(LD)
+
+helper.o: helper.cpp helper.h
+	$(CC) $(CFLAGS) -c helper.cpp -o helper.o $(LD)
 
 clean:
 	rm -f ffbackup-server *.o
