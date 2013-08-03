@@ -87,6 +87,7 @@ void ffprotocol::update(connection *conn)
 
         conn->in_buffer.get(hdr, 0, 2);
         conn->in_buffer.pop_front(2);
+        fprintf(stderr, "version = %02x; command=%02x\n", hdr[0], hdr[1]);
         task.version = hdr[0];
         switch(hdr[1])
         {
