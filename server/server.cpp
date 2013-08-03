@@ -185,23 +185,24 @@ void clean_up_connection(int sockfd)
 
 void main_loop(SSL_CTX *ctx, int sock_s)
 {
-    fd_set allset;
+    fd_set rset_bak;
+    fd_set wset_bak;
     fd_set rset;
     fd_set wset;
     int maxfd;
     int temp;
 
-    FD_ZERO(&allset);
-    FD_SET(sock_s, &allset);
+    FD_ZERO(&rset_bak);
+    FD_ZERO(&wset_bak);
+    FD_SET(sock_s, &rset_bak);
     maxfd = sock_s;
     while( 1 )
     {
         int sock_c;
         int n;
 
-        rset = allset;
-        wset = allset;
-        FD_CLR(sock_s, &wset);
+        rset = rset_bak;
+        wset = wset_bak;
         n = select(maxfd + 1, &rset, &wset, NULL, NULL);
         if(n <= 0)
             continue;
@@ -242,7 +243,7 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                 }
                 else
                 {
-                    FD_SET(sock_c, &allset);
+                    FD_SET(sock_c, &rset_bak);
                     if(sock_c > temp)
                         temp = sock_c;
                 }
@@ -278,13 +279,25 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                         read_task(i);
                     if(w_ok)
                         write_task(i);
+
+                    /* 避免频繁地被暂时不关注的事件触发，造成CPU资源的浪费 */
+                    if(conns[i].out_buffer.get_size() > 0 ||
+                            conns[i].processor.wait_for_writable())
+                        FD_SET(i, &wset_bak);
+                    else
+                        FD_CLR(i, &wset_bak);
+                    if(conns[i].processor.wait_for_readable())
+                        FD_SET(i, &rset_bak);
+                    else
+                        FD_CLR(i, &rset_bak);
                 }
             }
 
             if(conns[i].state == connection::state_close)
             {
                 clean_up_connection(i);
-                FD_CLR(i, &allset);
+                FD_CLR(i, &rset_bak);
+                FD_CLR(i, &wset_bak);
                 fprintf(stderr, "close, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
             }
         }
