@@ -32,7 +32,7 @@ public:
 
 protected:
     std::string project_name;
-    size_t file_count;
+    uint32_t file_count;
     std::list<file_info> file_list;
 
 private:

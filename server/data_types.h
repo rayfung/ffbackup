@@ -2,6 +2,7 @@
 #define DATA_TYPES_H
 
 #include <string>
+#include <stdint.h>
 
 class file_info
 {
