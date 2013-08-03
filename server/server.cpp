@@ -174,6 +174,7 @@ connection::conn_state ssl_accept_then_verify(SSL *ssl)
 
 void clean_up_connection(int sockfd)
 {
+    fprintf(stderr, "clean_up_connection(%d)\n", sockfd);
     conns[sockfd].sockfd = -1;
     SSL_shutdown(conns[sockfd].ssl);
     close(sockfd);
@@ -291,14 +292,14 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                     else
                         FD_CLR(i, &rset_bak);
                 }
-            }
 
-            if(conns[i].state == connection::state_close)
-            {
-                clean_up_connection(i);
-                FD_CLR(i, &rset_bak);
-                FD_CLR(i, &wset_bak);
-                fprintf(stderr, "close, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
+                if(conns[i].state == connection::state_close)
+                {
+                    clean_up_connection(i);
+                    FD_CLR(i, &rset_bak);
+                    FD_CLR(i, &wset_bak);
+                    fprintf(stderr, "close, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
+                }
             }
         }
         maxfd = temp;
