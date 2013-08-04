@@ -3,7 +3,10 @@ server.key
 client.crt
 client.key
 ca.crt
-demoCA/
+/demoCA/
+/client/
+/test/
 *.o
-ffbackup-client
 ffbackup-server
+/start_server.sh
+/run_client.sh
