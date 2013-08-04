@@ -9,4 +9,5 @@ ca.crt
 *.o
 ffbackup-server
 /start_server.sh
+/run_server.sh
 /run_client.sh
