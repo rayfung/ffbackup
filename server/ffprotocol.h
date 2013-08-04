@@ -31,13 +31,17 @@ public:
     int update(connection *conn);
 
 protected:
+    void dump();
+
+protected:
     std::string project_name;
     uint32_t file_count;
     std::list<file_info> file_list;
 
 private:
     enum {state_recv_name, state_recv_size, state_recv_path,
-        state_recv_type, state_recv_hash} state;
+        state_recv_type, state_recv_hash, state_item_done, state_done} state;
+    file_info tmp_file_info;
 };
 
 class no_operation : public ffcmd
@@ -66,6 +70,9 @@ public:
     void append_task(fftask task);
     bool wait_for_readable();
     bool wait_for_writable();
+
+private:
+    void execute_task(connection *conn);
 
 private:
     int event;
