@@ -1,8 +1,17 @@
+#include <stdio.h>
 #include <arpa/inet.h>
 #include "helper.h"
 
 #define FF_LITTLE_ENDIAN 0
 #define FF_BIG_ENDIAN 1
+
+void dump_data(void *data, size_t size)
+{
+    unsigned char *ptr = (unsigned char *)data;
+    size_t i;
+    for(i = 0; i < size; ++i)
+        fprintf(stderr, "%02X ", (int)ptr[i]);
+}
 
 int get_byte_order()
 {

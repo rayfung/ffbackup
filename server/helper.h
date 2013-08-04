@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+void dump_data(void *data, size_t size);
+
 uint16_t ntoh16(uint16_t net);
 
 uint16_t hton16(uint16_t host);
