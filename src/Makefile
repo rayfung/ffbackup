@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-g -Wall
+CFLAGS=-g -Wall -D_FILE_OFFSET_BITS=64
 LD=-lssl -lcrypto
 
 all: ffbackup-server
