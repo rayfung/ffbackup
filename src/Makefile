@@ -1,13 +1,13 @@
 CC=g++
 CFLAGS=-g -Wall -D_FILE_OFFSET_BITS=64
-LD=-lssl -lcrypto
+LD=-lssl
 
 all: ffbackup-server
 
-ffbackup-server: server.o task.o ffbuffer.o ffprotocol.o helper.o
-	$(CC) $(CFLAGS) server.o task.o ffbuffer.o ffprotocol.o helper.o -o ffbackup-server $(LD)
+ffbackup-server: server.o task.o ffbuffer.o ffprotocol.o helper.o config.o
+	$(CC) $(CFLAGS) server.o task.o ffbuffer.o ffprotocol.o helper.o config.o -o ffbackup-server $(LD)
 
-server.o: server.cpp server.h task.h ffbuffer.h
+server.o: server.cpp server.h task.h ffbuffer.h config.h
 	$(CC) $(CFLAGS) -c server.cpp -o server.o $(LD)
 
 task.o: task.cpp server.h task.h ffbuffer.h
@@ -16,11 +16,14 @@ task.o: task.cpp server.h task.h ffbuffer.h
 ffbuffer.o: ffbuffer.cpp ffbuffer.h
 	$(CC) $(CFLAGS) -c ffbuffer.cpp -o ffbuffer.o $(LD)
 
-ffprotocol.o: ffprotocol.cpp ffprotocol.h ffbuffer.h data_types.h
+ffprotocol.o: ffprotocol.cpp ffprotocol.h ffbuffer.h data_types.h config.h
 	$(CC) $(CFLAGS) -c ffprotocol.cpp -o ffprotocol.o $(LD)
 
 helper.o: helper.cpp helper.h
 	$(CC) $(CFLAGS) -c helper.cpp -o helper.o $(LD)
+
+config.o: config.cpp config.h
+	$(CC) $(CFLAGS) -c config.cpp -o config.o $(LD)
 
 clean:
 	rm -f ffbackup-server *.o
