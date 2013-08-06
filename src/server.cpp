@@ -18,21 +18,17 @@
 #include "server.h"
 #include "task.h"
 #include "ffbuffer.h"
-
-#define SSL_DFLT_PORT   "16903"
+#include "config.h"
 
 extern char *optarg;
 static BIO  *bio_err = NULL;
-static int  verbose = 0;
-static const char *password = "password";
 
-static int  err_exit( const char * );
 static int  ssl_err_exit( const char * );
 static void sigpipe_handle( int );
 static int  password_cb( char *, int, int, void * );
 static int  tcp_listen(const char *host, const char *serv, socklen_t *len);
 
-static server_config server_cfg;
+server_config server_cfg;
 connection *conns;
 
 static void set_nonblocking(int sockfd)
@@ -41,70 +37,10 @@ static void set_nonblocking(int sockfd)
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
 }
 
-SSL_CTX *init_ssl(int argc, char **argv, char **host, char **port)
+SSL_CTX *init_ssl(int argc, char **argv)
 {
-    int c;
     SSL_CTX *ctx;
     const SSL_METHOD *meth;
-    char *certfile = NULL;
-    char *keyfile = NULL;
-    char *cafile = NULL;
-    int tlsv1 = 0;
-
-    *host = NULL;
-    *port = strdup(SSL_DFLT_PORT);
-
-    while( (c = getopt( argc, argv, "b:c:hk:e:p:P:Tv" )) != -1 )
-    {
-        switch( c )
-        {
-            case 'h':
-                printf( "-T\t\tTLS v1 protocol\n" );
-                printf( "-b <address>\tBind address\n" );
-                printf( "-p <port>\tListen port number (default %s)\n", SSL_DFLT_PORT );
-                printf( "-c <file>\tCA certificate file\n" );
-                printf( "-e <file>\tCertificate file\n" );
-                printf( "-k <file>\tPrivate key file (defaults to certificate file)\n" );
-                printf( "-P <pwd>\tPassword for private key (defaults to 'password')\n" );
-                printf( "-v\t\tVerbose\n" );
-                exit(0);
-
-            case 'b':   /* Address */
-                if ( ! (*host = strdup( optarg )) )
-                    err_exit( "Invalid address specified" );
-                break;
-
-            case 'p':   /* Port */
-                if ( ! (*port = strdup( optarg )) )
-                    err_exit( "Invalid port specified" );
-                break;
-
-            case 'e':   /* Certificate File */
-                if ( ! (certfile = strdup( optarg )) )
-                    err_exit( "Out of memory" );
-                break;
-
-            case 'c':   /* CA File */
-                if ( ! (cafile = strdup( optarg )) )
-                    err_exit( "Out of memory" );
-                break;
-
-            case 'k':   /* Private Key File */
-                if ( ! (keyfile = strdup( optarg )) )
-                    err_exit( "Out of memory" );
-                break;
-
-            case 'P':   /* Private Key Password */
-                if ( ! (password = strdup( optarg )) )
-                    err_exit( "Out of memory" );
-                break;
-
-            case 'T':  tlsv1 = 1;       break;
-            case 'v':  verbose = 1;     break;
-        }
-    }
-
-    if ( ! keyfile )  keyfile = certfile;   /* Default to certfile */
 
     /* Initialize SSL library */
     SSL_library_init();
@@ -117,7 +53,7 @@ SSL_CTX *init_ssl(int argc, char **argv, char **host, char **port)
     signal( SIGPIPE, sigpipe_handle );
 
     /* Create SSL context*/
-    if ( tlsv1 )
+    if ( server_cfg.get_protocol() == server_config::tlsv1 )
         meth = TLSv1_method();
     else
         meth = SSLv23_method();
@@ -125,21 +61,18 @@ SSL_CTX *init_ssl(int argc, char **argv, char **host, char **port)
     ctx = SSL_CTX_new( meth );
 
     /* Load certificates */
-    if ( certfile  &&  ! SSL_CTX_use_certificate_chain_file( ctx, certfile ) )
+    if ( ! SSL_CTX_use_certificate_chain_file( ctx, server_cfg.get_cert_file() ) )
         ssl_err_exit( "Can't read certificate file" );
 
-    if ( keyfile )
-    {
-        /* Set pass phrase callback routine */
-        SSL_CTX_set_default_passwd_cb( ctx, password_cb );
+    /* Set pass phrase callback routine */
+    SSL_CTX_set_default_passwd_cb( ctx, password_cb );
 
-        /* Load private key */
-        if ( ! SSL_CTX_use_PrivateKey_file( ctx, keyfile, SSL_FILETYPE_PEM ) )
-            ssl_err_exit( "Can't read key file" );
-    }
+    /* Load private key */
+    if ( ! SSL_CTX_use_PrivateKey_file( ctx, server_cfg.get_key_file(), SSL_FILETYPE_PEM ) )
+        ssl_err_exit( "Can't read key file" );
 
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
-    if( cafile && !SSL_CTX_load_verify_locations(ctx, cafile, NULL))
+    if( !SSL_CTX_load_verify_locations(ctx, server_cfg.get_ca_file(), NULL))
         ssl_err_exit("Can't read CA file");
 
     /* make it possible to retry SSL_write() with different buffer
@@ -217,7 +150,7 @@ void main_loop(SSL_CTX *ctx, int sock_s)
             {
                 if ( (sock_c = accept( sock_s, NULL, NULL )) < 0 )
                     break;
-                if(sock_c >= server_cfg.max_connection)
+                if(sock_c >= server_cfg.get_max_connection())
                 {
                     close(sock_c);
                     break;
@@ -309,17 +242,15 @@ void main_loop(SSL_CTX *ctx, int sock_s)
 int main( int argc, char **argv )
 {
     int sock_s;
-    char *host, *port;
     SSL_CTX *ctx;
 
-    server_cfg.max_connection = 256;
-    conns = new connection[server_cfg.max_connection];
+    conns = new connection[server_cfg.get_max_connection()];
     assert(conns != NULL);
-    for(int i = 0; i < server_cfg.max_connection; ++i)
+    for(int i = 0; i < server_cfg.get_max_connection(); ++i)
         conns[i].sockfd = -1;
 
-    ctx = init_ssl(argc, argv, &host, &port);
-    sock_s = tcp_listen( host, port, NULL );
+    ctx = init_ssl(argc, argv);
+    sock_s = tcp_listen( server_cfg.get_host(), server_cfg.get_service(), NULL );
     set_nonblocking(sock_s);
 
     main_loop(ctx, sock_s);
@@ -327,12 +258,6 @@ int main( int argc, char **argv )
     /* Free SSL context */
     SSL_CTX_free( ctx );
     delete[] conns;
-    exit(0);
-}
-
-static int err_exit( const char *str )
-{
-    fprintf( stderr, "%s\n", str );
     exit(0);
 }
 
@@ -349,6 +274,7 @@ static void sigpipe_handle( int x )
 
 static int password_cb( char *buf, int num, int rwflag, void *userdata )
 {
+    const char *password = server_cfg.get_key_file_password();
     int len = strlen( password );
 
     if ( num < len + 1 )

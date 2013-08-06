@@ -22,10 +22,4 @@ public:
     ffbuffer out_buffer;
 };
 
-class server_config
-{
-public:
-    int max_connection;
-};
-
 #endif
