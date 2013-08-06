@@ -1,0 +1,6 @@
+project(ffbackup-server)
+cmake_minimum_required(VERSION 2.6)
+aux_source_directory(src src_list)
+add_executable(ffbackup-server ${src_list})
+target_link_libraries(ffbackup-server ssl)
+add_definitions(-Wall -O2 -g -D_FILE_OFFSET_BITS=64)

@@ -8,6 +8,9 @@ ca.crt
 /test/
 *.o
 ffbackup-server
-/start_server.sh
-/run_server.sh
 /run_client.sh
+CMakeCache.txt
+CMakeFiles
+Makefile
+cmake_install.cmake
+install_manifest.txt
