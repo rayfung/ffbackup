@@ -15,7 +15,7 @@ public:
     int sockfd;
     enum conn_state
     {
-        state_accepting, state_close, state_processing,
+        state_accepting, state_close, state_processing
     } state;
     ffprotocol processor;
     ffbuffer in_buffer;
