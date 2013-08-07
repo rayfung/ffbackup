@@ -251,6 +251,9 @@ int main( int argc, char **argv )
 
     ctx = init_ssl(argc, argv);
     sock_s = tcp_listen( server_cfg.get_host(), server_cfg.get_service(), NULL );
+    if(sock_s < 0)
+        exit(EXIT_FAILURE);
+
     set_nonblocking(sock_s);
 
     main_loop(ctx, sock_s);
