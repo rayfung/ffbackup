@@ -268,7 +268,7 @@ static int ssl_err_exit( const char *str )
 {
     BIO_printf( bio_err, "%s\n", str );
     ERR_print_errors( bio_err );
-    exit(0);
+    exit(EXIT_FAILURE);
 }
 
 static void sigpipe_handle( int x )
