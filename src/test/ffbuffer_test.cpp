@@ -130,11 +130,71 @@ void random_read()
     puts("===============================================");
 }
 
+void test_find()
+{
+    ffbuffer buf;
+    char msg_found[] = "Hello, 你好\nFFBackup\n";
+    char msg_not_found[] = "Linux Kernel";
+    char msg_repeat[] = "pascal 语言";
+    size_t index;
+    bool found;
+
+    puts("==================== test_find ==================");
+    buf.push_back(msg_found, sizeof(msg_found));
+    printf("put the following bytes to buffer(size = %d)\n", (int)buf.get_size());
+    puts(msg_found);
+    index = buf.find('\n', &found);
+    printf("'\\n' ");
+    if(found)
+        printf("found, index = %ld\n", (long)index);
+    else
+        printf("not found, index = %ld\n", (long)index);
+    puts("");
+    buf.clear();
+
+    buf.push_back(msg_not_found, sizeof(msg_not_found));
+    printf("put the following bytes to buffer(size = %d)\n", (int)buf.get_size());
+    puts(msg_not_found);
+    index = buf.find('k', &found);
+    printf("'k' ");
+    if(found)
+        printf("found, index = %ld\n", (long)index);
+    else
+        printf("not found, index = %ld\n", (long)index);
+
+    puts("");
+    buf.clear();
+    for(int i = 0; i < 80; ++i)
+        buf.push_back(msg_repeat, sizeof(msg_repeat));
+    buf.push_back("GCC", 3);
+    index = buf.find('C', &found);
+    if(found)
+        printf("'C' found, index = %ld\n", (long)index);
+    else
+        printf("'C' not found, index = %ld\n", (long)index);
+    printf("index should be 1121\n");
+
+    index = buf.find('\0', &found);
+    if(found)
+        printf("'\\0' found, index = %ld\n", (long)index);
+    else
+        printf("'\\0' not found, index = %ld\n", (long)index);
+    printf("index should be 13\n");
+
+    index = buf.find('z', &found);
+    if(found)
+        printf("'z' found, index = %ld\n", (long)index);
+    else
+        printf("'z' not found, index = %ld\n", (long)index);
+    puts("=================================================");
+}
+
 int main()
 {
     normal();
     put_some_small_data();
     put_many_data();
     random_read();
+    test_find();
     return 0;
 }
