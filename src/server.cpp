@@ -14,10 +14,8 @@
 #include <sys/time.h>
 #include <assert.h>
 
-#include "ffprotocol.h"
 #include "server.h"
 #include "task.h"
-#include "ffbuffer.h"
 #include "config.h"
 
 extern char *optarg;

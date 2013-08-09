@@ -5,8 +5,7 @@
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include "ffbuffer.h"
-
-class ffprotocol;
+#include "ffprotocol.h"
 
 class connection
 {
