@@ -32,6 +32,7 @@ public:
 
 protected:
     void dump();
+    void generate_task(connection *conn);
 
 protected:
     std::string project_name;
@@ -42,6 +43,21 @@ private:
     enum {state_recv_name, state_recv_size, state_recv_path,
         state_recv_type, state_recv_hash, state_item_done, state_done} state;
     file_info tmp_file_info;
+};
+
+class ser_request_whole : public ffcmd
+{
+public:
+    ser_request_whole(const std::list<std::string> &file_list);
+    ~ser_request_whole();
+    int update(connection *conn);
+
+private:
+    std::list<std::string> file_list;
+    int file_fd;
+    uint64_t file_size;
+    bool size_read;
+    enum {state_send_path, state_read_data, state_item_done}state;
 };
 
 class no_operation : public ffcmd
@@ -70,6 +86,7 @@ public:
     void append_task(fftask task);
     bool wait_for_readable();
     bool wait_for_writable();
+    void set_event(int ev);
 
 private:
     void execute_task(connection *conn);
