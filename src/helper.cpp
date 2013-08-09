@@ -13,6 +13,54 @@ void dump_data(void *data, size_t size)
         fprintf(stderr, "%02X ", (int)ptr[i]);
 }
 
+std::list<std::string> split_path(const std::string &path)
+{
+    size_t path_len;
+    const char *path_c;
+    std::list<std::string> component_list;
+    size_t i;
+    size_t pos;
+    size_t len;
+    int state;
+
+    path_len = path.size();
+    path_c = path.c_str();
+
+    if(path_c[0] == '/')
+        component_list.push_back(std::string("/"));
+    state = 0;
+    for(i = 0; i <= path_len;)
+    {
+        char ch = path_c[i];
+        switch(state)
+        {
+        case 0:
+            if(ch == '/' || ch == '\0')
+            {
+                ++i;
+                break;
+            }
+        case 1:
+            pos = i;
+            len = 0;
+            state = 2;
+        case 2:
+            if(ch == '/' || ch == '\0')
+            {
+                component_list.push_back(std::string(path_c + pos, len));
+                state = 0;
+            }
+            else
+            {
+                ++len;
+                ++i;
+            }
+            break;
+        }
+    }
+    return component_list;
+}
+
 int get_byte_order()
 {
     uint16_t k = 0x0102;

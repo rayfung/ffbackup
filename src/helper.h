@@ -2,8 +2,12 @@
 #define HELPER_H
 
 #include <stdint.h>
+#include <string>
+#include <list>
 
 void dump_data(void *data, size_t size);
+
+std::list<std::string> split_path(const std::string &path);
 
 uint16_t ntoh16(uint16_t net);
 
