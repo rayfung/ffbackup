@@ -28,6 +28,7 @@ static void sigpipe_handle( int );
 static int  password_cb( char *, int, int, void * );
 static int  tcp_listen(const char *host, const char *serv, socklen_t *len);
 
+const char *config_path = "./test/server.conf";
 server_config server_cfg;
 connection *conns;
 
@@ -243,6 +244,9 @@ int main( int argc, char **argv )
 {
     int sock_s;
     SSL_CTX *ctx;
+
+    if(server_cfg.read_config(config_path) == false)
+        exit(EXIT_FAILURE);
 
     conns = new connection[server_cfg.get_max_connection()];
     assert(conns != NULL);
