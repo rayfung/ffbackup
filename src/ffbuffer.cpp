@@ -31,6 +31,54 @@ void ffbuffer::print_chunk_info()
     }
 }
 
+/**
+ *
+ * 查找 ch 第一次出现的位置
+ *
+ * @param ch 要查找的字节
+ * @param found 用于表示是否找到
+ *
+ * @return ch 如果找到，则返回第一次出现的位置，否则，返回此 buffer 的大小
+ *
+ */
+size_t ffbuffer::find(unsigned char ch, bool *found)
+{
+    size_t i, n;
+    ffchunk *ptr;
+
+    n = 0;
+    ptr = this->head_ptr;
+    while(ptr)
+    {
+        for(i = 0; i < ptr->size; ++i)
+        {
+            if(ptr->data[i] == ch)
+            {
+                *found = true;
+                return n + i;
+            }
+        }
+        n += ptr->size;
+        ptr = ptr->link;
+    }
+    *found = false;
+    return this->buffer_size;
+}
+
+/**
+ *
+ * 获取下标为 index 的字节
+ *
+ * @return 如果 index 位于正确的范围内，则返回此下标位置的值，否则，返回值未定义
+ *
+ */
+unsigned char ffbuffer::at(size_t index)
+{
+    unsigned char ch;
+    this->get(&ch, index, 1);
+    return ch;
+}
+
 /* free all the memory used by this ffbuffer object */
 void ffbuffer::clear()
 {

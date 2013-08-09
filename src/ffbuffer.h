@@ -27,6 +27,8 @@ public:
     size_t get(void *buf, size_t pos, size_t size);
     void clear();
     void print_chunk_info();
+    size_t find(unsigned char ch, bool *found);
+    unsigned char at(size_t index);
 
 private:
     size_t buffer_size;
