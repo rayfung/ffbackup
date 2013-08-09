@@ -12,6 +12,8 @@ public:
 public:
     server_config();
     ~server_config();
+    void reset();
+    bool read_config(const char *path);
     int get_max_connection() const;
     const char *get_backup_root() const;
     enum protocol get_protocol() const;
