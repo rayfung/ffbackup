@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -149,10 +150,16 @@ void cli_start_bak::generate_task(connection *conn)
     std::list<file_info>::iterator iter;
     for(iter = this->file_list.begin(); iter != this->file_list.end(); ++iter)
     {
-        if(iter->type == 'f')
+        std::list<std::string> path_component;
+        path_component = split_path(iter->path);
+        if(std::find(path_component.begin(), path_component.end(), std::string(".."))
+                != path_component.end())
         {
-            whole_file_list.push_back(iter->path);
+            fprintf(stderr, "[warning] found \"..\" in file path!\n");
+            continue;
         }
+        if(iter->type == 'f')
+            whole_file_list.push_back(iter->path);
     }
 
     fftask task;
