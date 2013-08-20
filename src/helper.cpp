@@ -80,6 +80,19 @@ bool is_path_safe(const std::string &path)
     return true;
 }
 
+bool is_project_name_safe(const char *prj)
+{
+    if(prj[0] == '\0')
+        return false; //项目名称不能为空
+    while(prj[0])
+    {
+        if(prj[0] == '/' || prj[0] == '.')
+            return false;
+        ++prj;
+    }
+    return true;
+}
+
 int get_byte_order()
 {
     uint16_t k = 0x0102;

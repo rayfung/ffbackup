@@ -41,7 +41,7 @@ int start_backup::update(connection *conn)
     prj = new char[n + 1];
     conn->in_buffer.get(prj, 0, n + 1);
     conn->in_buffer.pop_front(n + 1);
-    if(!is_path_safe(std::string(prj)))
+    if(!is_project_name_safe(prj))
     {
         delete[] prj;
         return FF_ERROR;
