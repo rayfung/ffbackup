@@ -4,7 +4,6 @@
 #include <string>
 #include <list>
 #include <queue>
-#include "data_types.h"
 
 #define FF_DONE 0
 #define FF_AGAIN 1
@@ -23,41 +22,12 @@ public:
     virtual int update(connection *conn) = 0;
 };
 
-class cli_start_bak : public ffcmd
+class start_backup : public ffcmd
 {
 public:
-    cli_start_bak();
-    ~cli_start_bak();
+    start_backup();
+    ~start_backup();
     int update(connection *conn);
-
-protected:
-    void dump();
-    void generate_task(connection *conn);
-
-protected:
-    std::string project_name;
-    uint32_t file_count;
-    std::list<file_info> file_list;
-
-private:
-    enum {state_recv_name, state_recv_size, state_recv_path,
-        state_recv_type, state_recv_hash, state_item_done, state_done} state;
-    file_info tmp_file_info;
-};
-
-class ser_request_whole : public ffcmd
-{
-public:
-    ser_request_whole(const std::list<std::string> &file_list);
-    ~ser_request_whole();
-    int update(connection *conn);
-
-private:
-    std::list<std::string> file_list;
-    int file_fd;
-    uint64_t file_size;
-    bool size_read;
-    enum {state_send_path, state_read_data, state_item_done}state;
 };
 
 class no_operation : public ffcmd
@@ -90,6 +60,9 @@ public:
 
 private:
     void execute_task(connection *conn);
+
+public:
+    std::string project_name;
 
 private:
     int event;

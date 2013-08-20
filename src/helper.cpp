@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <stdio.h>
 #include <arpa/inet.h>
 #include "helper.h"
@@ -59,6 +60,24 @@ std::list<std::string> split_path(const std::string &path)
         }
     }
     return component_list;
+}
+
+bool is_path_safe(const std::string &path)
+{
+    std::list<std::string> component_list;
+
+    if(path.empty())
+        return false;
+    if(path.find('\0') != std::string::npos)
+        return false;
+
+    component_list = split_path(path);
+    if(component_list.size() > 0 && component_list.front() == std::string("/"))
+        return false;
+    if(std::find(component_list.begin(), component_list.end(), std::string(".."))
+            != component_list.end())
+        return false;
+    return true;
 }
 
 int get_byte_order()
