@@ -11,7 +11,7 @@ extern server_config server_cfg;
 namespace ffstorage
 {
 
-static void _scan_dir(const char *dir, std::list<file_info> *result)
+static void _scan_dir(const char *dir, std::list<file_info> *result, std::string tmp)
 {
     DIR *dp;
     struct dirent *entry;
@@ -30,19 +30,19 @@ static void _scan_dir(const char *dir, std::list<file_info> *result)
 
             file_info info;
             info.type = 'd';
-            if(result->size() > 0)
-                info.path = result->back().path;
+            if(!tmp.empty())
+                info.path = tmp + std::string("/");
             info.path += std::string(entry->d_name);
             result->push_back(info);
 
-            _scan_dir(entry->d_name, result);
+            _scan_dir(entry->d_name, result, info.path);
         }
         else if(S_ISREG(statbuf.st_mode))
         {
             file_info info;
             info.type = 'f';
-            if(result->size() > 0)
-                info.path = result->back().path;
+            if(!tmp.empty())
+                info.path = tmp + std::string("/");
             info.path += std::string(entry->d_name);
             result->push_back(info);
         }
@@ -77,7 +77,7 @@ void scan(const char *project_name, std::list<file_info> *result)
 {
     result->clear();
     chdir_project(project_name);
-    _scan_dir("current", result);
+    _scan_dir("current", result, std::string());
 }
 
 }
