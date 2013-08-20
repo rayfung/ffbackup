@@ -245,6 +245,11 @@ int main( int argc, char **argv )
 
     if(server_cfg.read_config(config_path) == false)
         exit(EXIT_FAILURE);
+    if(chdir(server_cfg.get_backup_root()) == -1)
+    {
+        perror("chdir");
+        exit(EXIT_FAILURE);
+    }
 
     conns = new connection[server_cfg.get_max_connection()];
     assert(conns != NULL);

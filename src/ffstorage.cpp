@@ -4,24 +4,26 @@
 #include <unistd.h>
 #include <string.h>
 #include "ffstorage.h"
-#include "config.h"
-
-extern server_config server_cfg;
 
 namespace ffstorage
 {
 
-static void _scan_dir(const char *dir, std::list<file_info> *result, std::string tmp)
+static void _scan_dir(const std::string &base, std::string dir, std::list<file_info> *result)
 {
     DIR *dp;
     struct dirent *entry;
     struct stat statbuf;
 
-    if((dp = opendir(dir)) == NULL || chdir(dir) < 0)
+    dp = opendir((base + dir).c_str());
+    if(dp == NULL)
         return;
     while((entry = readdir(dp)) != NULL)
     {
-        lstat(entry->d_name, &statbuf);
+        std::string path;
+
+        path = dir + std::string(entry->d_name);
+        if(lstat((base + path).c_str(), &statbuf) < 0)
+            continue;
         if(S_ISDIR(statbuf.st_mode))
         {
             if(strcmp(".", entry->d_name) == 0 ||
@@ -30,54 +32,40 @@ static void _scan_dir(const char *dir, std::list<file_info> *result, std::string
 
             file_info info;
             info.type = 'd';
-            if(!tmp.empty())
-                info.path = tmp + std::string("/");
-            info.path += std::string(entry->d_name);
+            info.path = path;
             result->push_back(info);
 
-            _scan_dir(entry->d_name, result, info.path);
+            _scan_dir(base, path + "/", result);
         }
         else if(S_ISREG(statbuf.st_mode))
         {
             file_info info;
             info.type = 'f';
-            if(!tmp.empty())
-                info.path = tmp + std::string("/");
-            info.path += std::string(entry->d_name);
+            info.path = path;
             result->push_back(info);
         }
     }
-    chdir("..");
     closedir(dp);
-}
-
-static bool chdir_project(const char *project_name)
-{
-    if(chdir(server_cfg.get_backup_root()) == -1)
-        return false;
-    if(chdir(project_name) == -1)
-        return false;
-    return true;
 }
 
 bool prepare(const char *project_name)
 {
-    if(chdir(server_cfg.get_backup_root()) == -1)
-        return false;
+    std::string path;
+
+    path.assign(project_name);
+
     mkdir(project_name, 0775);
-    if(chdir(project_name) == -1)
-        return false;
-    mkdir("current", 0775);
-    mkdir("history", 0775);
-    mkdir("cache", 0775);
+    mkdir((path + "/current").c_str(), 0775);
     return true;
 }
 
 void scan(const char *project_name, std::list<file_info> *result)
 {
+    std::string base;
+
     result->clear();
-    chdir_project(project_name);
-    _scan_dir("current", result, std::string());
+    base = std::string(project_name) + std::string("/current/");
+    _scan_dir(base, std::string(), result);
 }
 
 }
