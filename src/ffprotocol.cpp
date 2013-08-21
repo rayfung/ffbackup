@@ -3,13 +3,59 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <stdint.h>
 #include "ffprotocol.h"
 #include "server.h"
 #include "ffbuffer.h"
 #include "helper.h"
 #include "config.h"
 #include "ffstorage.h"
+
+static bool get_protocol_string(ffbuffer *in, std::string *s)
+{
+    bool found;
+    size_t pos;
+    char *ptr;
+
+    s->clear();
+    pos = in->find('\0', &found);
+    if(!found)
+        return false;
+    ptr = new char[pos + 1];
+    in->get(ptr, 0, pos + 1);
+    in->pop_front(pos + 1);
+    s->assign(ptr);
+    delete[] ptr;
+    return true;
+}
+
+static bool get_protocol_char(ffbuffer *in, char *c)
+{
+    if(in->get_size() == 0)
+        return false;
+    in->get(c, 0, 1);
+    in->pop_front(1);
+    return true;
+}
+
+static bool get_protocol_uint32(ffbuffer *in, uint32_t *u32)
+{
+    if(in->get_size() < 4)
+        return false;
+    in->get(u32, 0, 4);
+    in->pop_front(4);
+    *u32 = ntoh32(*u32);
+    return true;
+}
+
+static bool get_protocol_uint64(ffbuffer *in, uint64_t *u64)
+{
+    if(in->get_size() < 8)
+        return false;
+    in->get(u64, 0, 8);
+    in->pop_front(8);
+    *u64 = ntoh64(*u64);
+    return true;
+}
 
 ffcmd::ffcmd()
 {
@@ -76,6 +122,105 @@ int start_backup::update(connection *conn)
         conn->out_buffer.push_back(path.data(), path.size());
         conn->out_buffer.push_back("\0", 1);
         conn->out_buffer.push_back(&type, 1);
+    }
+    return FF_DONE;
+}
+
+send_addition::send_addition()
+{
+    this->state = state_recv_size;
+    this->file_fd = -1;
+}
+
+send_addition::~send_addition()
+{
+    if(this->file_fd != -1)
+        close(this->file_fd);
+}
+
+int send_addition::update(connection *conn)
+{
+    if(conn->processor.project_name.empty())
+        return FF_ERROR;
+    while(1)
+    {
+        switch(this->state)
+        {
+        case state_recv_size:
+            if(!get_protocol_uint32(&conn->in_buffer, &this->size))
+                return FF_AGAIN;
+            if(this->size == 0)
+            {
+                char hdr[2] = {2, 0};
+                conn->out_buffer.push_back(hdr, 2);
+                return FF_DONE;
+            }
+            this->state = state_recv_path;
+            break;
+
+        case state_recv_path:
+            if(!get_protocol_string(&conn->in_buffer, &this->path))
+                return FF_AGAIN;
+            if(!is_path_safe(this->path))
+                return FF_ERROR;
+            this->state = state_recv_type;
+            break;
+
+        case state_recv_type:
+            if(!get_protocol_char(&conn->in_buffer, &this->type))
+                return FF_AGAIN;
+            if(this->type == 'd')
+            {
+                ffstorage::dir_add(conn->processor.project_name, this->path);
+                this->state = state_item_done;
+            }
+            else if(this->type == 'f')
+                this->state = state_recv_data_size;
+            else
+                return FF_ERROR;
+            break;
+
+        case state_recv_data_size:
+            if(!get_protocol_uint64(&conn->in_buffer, &this->data_size))
+                return FF_AGAIN;
+            this->file_fd = ffstorage::begin_add(conn->processor.project_name, this->path);
+            if(this->file_fd == -1)
+                return FF_ERROR;
+            this->state = state_recv_data;
+            break;
+
+        case state_recv_data:
+            while(this->data_size > 0)
+            {
+                char buffer[1024];
+                size_t size = sizeof(buffer);
+
+                if(size > this->data_size)
+                    size = this->data_size;
+                size = conn->in_buffer.get(buffer, 0, size);
+                conn->in_buffer.pop_front(size);
+                if(size == 0)
+                    return FF_AGAIN;
+                write(this->file_fd, buffer, size);
+                this->data_size -= size;
+            }
+            close(this->file_fd);
+            this->file_fd = -1;
+            ffstorage::end_add(conn->processor.project_name, this->path);
+            this->state = state_item_done;
+            break;
+
+        case state_item_done:
+            --this->size;
+            if(this->size == 0)
+            {
+                char hdr[2] = {2, 0};
+                conn->out_buffer.push_back(hdr, 2);
+                return FF_DONE;
+            }
+            this->state = state_recv_path;
+            break;
+        }
     }
     return FF_DONE;
 }
@@ -155,6 +300,10 @@ void ffprotocol::update(connection *conn)
             case 0x01:
                 this->project_name.clear();
                 task.cmd = new start_backup();
+                task.initial_event = FF_ON_READ;
+                break;
+            case 0x06:
+                task.cmd = new send_addition();
                 task.initial_event = FF_ON_READ;
                 break;
             default:

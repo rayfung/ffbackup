@@ -4,6 +4,7 @@
 #include <string>
 #include <list>
 #include <queue>
+#include <stdint.h>
 
 #define FF_DONE 0
 #define FF_AGAIN 1
@@ -28,6 +29,27 @@ public:
     start_backup();
     ~start_backup();
     int update(connection *conn);
+};
+
+class send_addition : public ffcmd
+{
+public:
+    send_addition();
+    ~send_addition();
+    int update(connection *conn);
+
+private:
+    enum
+    {
+        state_recv_size, state_recv_path, state_recv_type,
+        state_recv_data_size, state_recv_data,
+        state_item_done
+    }state;
+    uint32_t size;
+    std::string path;
+    char type;
+    uint64_t data_size;
+    int file_fd;
 };
 
 class no_operation : public ffcmd

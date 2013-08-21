@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <string.h>
@@ -56,6 +57,7 @@ bool prepare(const char *project_name)
 
     mkdir(project_name, 0775);
     mkdir((path + "/current").c_str(), 0775);
+    mkdir((path + "/cache").c_str(), 0775);
     return true;
 }
 
@@ -66,6 +68,20 @@ void scan(const char *project_name, std::list<file_info> *result)
     result->clear();
     base = std::string(project_name) + std::string("/current/");
     _scan_dir(base, std::string(), result);
+}
+
+int begin_add(const std::string &project_name, const std::string &path)
+{
+    return creat((project_name + "/cache/" + path).c_str(), 0644);
+}
+
+void end_add(const std::string &project_name, const std::string &path)
+{
+}
+
+void dir_add(const std::string &project_name, const std::string &path)
+{
+    mkdir((project_name + "/cache/" + path).c_str(), 0775);
 }
 
 }
