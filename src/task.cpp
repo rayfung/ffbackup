@@ -23,7 +23,6 @@ void read_task(int sockfd)
 
     do
     {
-        fprintf(stderr, "do-while in read_task(%d)\n", sockfd);
         ret = SSL_read(ssl, buffer, sizeof(buffer));
         switch( SSL_get_error( ssl, ret ) )
         {

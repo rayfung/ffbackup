@@ -169,6 +169,7 @@ int send_addition::update(connection *conn)
         case state_recv_type:
             if(!get_protocol_char(&conn->in_buffer, &this->type))
                 return FF_AGAIN;
+            fprintf(stderr, "[dump] path=%s type=%c\n", this->path.c_str(), this->type);
             if(this->type == 'd')
             {
                 ffstorage::dir_add(conn->processor.project_name, this->path);
