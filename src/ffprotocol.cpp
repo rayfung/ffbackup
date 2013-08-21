@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include "ffprotocol.h"
 #include "server.h"
 #include "ffbuffer.h"
@@ -32,6 +33,7 @@ int start_backup::update(connection *conn)
     size_t n;
     char *prj = NULL;
     std::list<file_info> result;
+    std::list<file_info>::iterator iter;
 
     n = conn->in_buffer.find('\0', &found);
     if(!found)
@@ -50,8 +52,7 @@ int start_backup::update(connection *conn)
     ffstorage::scan(prj, &result);
 
     fprintf(stderr, "\n[BEGIN dump]\n");
-    for(std::list<file_info>::iterator iter = result.begin();
-        iter != result.end(); ++iter)
+    for(iter = result.begin(); iter != result.end(); ++iter)
     {
         fprintf(stderr, "path=[%s]; type=%c\n", iter->path.c_str(), iter->type);
     }
@@ -60,6 +61,22 @@ int start_backup::update(connection *conn)
     //后续操作需要用到这个项目名称
     conn->processor.project_name.assign(prj);
     delete[] prj;
+
+    char hdr[2] = {2, 0};
+    uint32_t size;
+
+    size = hton32((uint32_t)result.size());
+    conn->out_buffer.push_back(hdr, 2);
+    conn->out_buffer.push_back(&size, 4);
+    for(iter = result.begin(); iter != result.end(); ++iter)
+    {
+        std::string path = iter->path;
+        char type = iter->type;
+
+        conn->out_buffer.push_back(path.data(), path.size());
+        conn->out_buffer.push_back("\0", 1);
+        conn->out_buffer.push_back(&type, 1);
+    }
     return FF_DONE;
 }
 
