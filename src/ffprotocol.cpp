@@ -324,7 +324,7 @@ void ffprotocol::update(connection *conn)
                 break;
             case 0x07:
                 task.cmd = new finish_backup();
-                task.initial_event = FF_ON_READ;
+                task.initial_event = FF_ON_WRITE;
                 break;
             default:
                 conn->state = connection::state_close;
