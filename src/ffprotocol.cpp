@@ -226,6 +226,21 @@ int send_addition::update(connection *conn)
     return FF_DONE;
 }
 
+finish_backup::finish_backup()
+{
+}
+
+finish_backup::~finish_backup()
+{
+}
+
+int finish_backup::update(connection *conn)
+{
+    char hdr[2] = {2, 0};
+    conn->out_buffer.push_back(hdr, 2);
+    return FF_DONE;
+}
+
 no_operation::no_operation()
 {
 }
@@ -305,6 +320,10 @@ void ffprotocol::update(connection *conn)
                 break;
             case 0x06:
                 task.cmd = new send_addition();
+                task.initial_event = FF_ON_READ;
+                break;
+            case 0x07:
+                task.cmd = new finish_backup();
                 task.initial_event = FF_ON_READ;
                 break;
             default:

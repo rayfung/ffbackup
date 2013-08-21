@@ -52,6 +52,14 @@ private:
     int file_fd;
 };
 
+class finish_backup : public ffcmd
+{
+public:
+    finish_backup();
+    ~finish_backup();
+    int update(connection *conn);
+};
+
 class no_operation : public ffcmd
 {
 public:
