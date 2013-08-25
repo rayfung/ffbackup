@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 #include "ffstorage.h"
 
 namespace ffstorage
@@ -82,6 +83,16 @@ void end_add(const std::string &project_name, const std::string &path)
 void dir_add(const std::string &project_name, const std::string &path)
 {
     mkdir((project_name + "/cache/" + path).c_str(), 0775);
+}
+
+void mark_deletion(const std::string &project_name, const std::list<std::string> &file_list)
+{
+    std::list<std::string>::const_iterator iter;
+
+    fprintf(stderr, "\n[BEGIN mark_deletion]\n");
+    for(iter = file_list.begin(); iter != file_list.end(); ++iter)
+        fprintf(stderr, "%s\n", iter->c_str());
+    fprintf(stderr, "\n[END mark_deletion]\n");
 }
 
 }

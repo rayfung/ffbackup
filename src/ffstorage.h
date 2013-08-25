@@ -19,6 +19,7 @@ void scan(const char *project_name, std::list<file_info> *result);
 int begin_add(const std::string &project_name, const std::string &path);
 void end_add(const std::string &project_name, const std::string &path);
 void dir_add(const std::string &project_name, const std::string &path);
+void mark_deletion(const std::string &project_name, const std::list<std::string> &file_list);
 
 }
 

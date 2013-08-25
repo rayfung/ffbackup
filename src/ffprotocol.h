@@ -31,6 +31,22 @@ public:
     int update(connection *conn);
 };
 
+class send_deletion : public ffcmd
+{
+public:
+    send_deletion();
+    ~send_deletion();
+    int update(connection *conn);
+
+private:
+    std::list<std::string> file_list;
+    uint32_t size;
+    enum
+    {
+        state_recv_size, state_recv_path, state_item_done
+    }state;
+};
+
 class send_addition : public ffcmd
 {
 public:

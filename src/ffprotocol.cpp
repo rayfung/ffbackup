@@ -126,6 +126,59 @@ int start_backup::update(connection *conn)
     return FF_DONE;
 }
 
+send_deletion::send_deletion()
+{
+    this->state = state_recv_size;
+}
+
+send_deletion::~send_deletion()
+{
+}
+
+int send_deletion::update(connection *conn)
+{
+    std::string path;
+
+    if(conn->processor.project_name.empty())
+        return FF_ERROR;
+    while(1)
+    {
+        switch(this->state)
+        {
+        case state_recv_size:
+            if(!get_protocol_uint32(&conn->in_buffer, &this->size))
+                return FF_AGAIN;
+            if(this->size == 0)
+                return FF_DONE;
+            this->state = state_recv_path;
+            break;
+
+        case state_recv_path:
+            if(!get_protocol_string(&conn->in_buffer, &path))
+                return FF_AGAIN;
+            if(!is_path_safe(path))
+                return FF_ERROR;
+            this->state = state_item_done;
+            break;
+
+        case state_item_done:
+            this->file_list.push_back(path);
+            --this->size;
+            if(this->size == 0)
+            {
+                char hdr[2] = {2, 0};
+
+                ffstorage::mark_deletion(conn->processor.project_name, this->file_list);
+                conn->out_buffer.push_back(hdr, 2);
+                return FF_DONE;
+            }
+            this->state = state_recv_path;
+            break;
+        }
+    }
+    return FF_DONE;
+}
+
 send_addition::send_addition()
 {
     this->state = state_recv_size;
@@ -316,6 +369,10 @@ void ffprotocol::update(connection *conn)
             case 0x01:
                 this->project_name.clear();
                 task.cmd = new start_backup();
+                task.initial_event = FF_ON_READ;
+                break;
+            case 0x05:
+                task.cmd = new send_deletion();
                 task.initial_event = FF_ON_READ;
                 break;
             case 0x06:
