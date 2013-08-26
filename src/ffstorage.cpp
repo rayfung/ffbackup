@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <openssl/sha.h>
 #include "ffstorage.h"
 
 namespace ffstorage
@@ -93,6 +94,33 @@ void mark_deletion(const std::string &project_name, const std::list<std::string>
     for(iter = file_list.begin(); iter != file_list.end(); ++iter)
         fprintf(stderr, "%s\n", iter->c_str());
     fprintf(stderr, "\n[END mark_deletion]\n");
+}
+
+bool hash_sha1(const std::string &project_name, const std::string &path, void *hash)
+{
+    SHA_CTX ctx;
+    FILE *fp;
+    std::string tmp = project_name + "/current/" + path;
+    size_t ret;
+    char buffer[1024];
+
+    fp = fopen(tmp.c_str(), "rb");
+    if(fp == NULL)
+        return false;
+    if(SHA1_Init(&ctx) == 0)
+        return false;
+    while((ret = fread(buffer, 1, sizeof(buffer), fp)) > 0)
+    {
+        if(SHA1_Update(&ctx, buffer, ret) == 0)
+        {
+            fclose(fp);
+            return false;
+        }
+    }
+    fclose(fp);
+    if(SHA1_Final((unsigned char *)hash, &ctx) == 0)
+        return false;
+    return true;
 }
 
 }

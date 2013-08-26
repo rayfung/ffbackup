@@ -20,6 +20,7 @@ int begin_add(const std::string &project_name, const std::string &path);
 void end_add(const std::string &project_name, const std::string &path);
 void dir_add(const std::string &project_name, const std::string &path);
 void mark_deletion(const std::string &project_name, const std::list<std::string> &file_list);
+bool hash_sha1(const std::string &project_name, const std::string &path, void *hash);
 
 }
 
