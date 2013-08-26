@@ -149,7 +149,11 @@ int send_deletion::update(connection *conn)
             if(!get_protocol_uint32(&conn->in_buffer, &this->size))
                 return FF_AGAIN;
             if(this->size == 0)
+            {
+                char hdr[2] = {2, 0};
+                conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
+            }
             this->state = state_recv_path;
             break;
 
