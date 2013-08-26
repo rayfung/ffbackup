@@ -8,6 +8,8 @@
 #include <list>
 #include <algorithm>
 
+namespace ff_sched
+{
 class ff_task
 {
 public:
@@ -46,5 +48,6 @@ private:
     pthread_t *thread_id; /*线程池中所有线程的ID*/
     int thread_count; /*线程池中的线程数量*/
 };
+}
 
 #endif

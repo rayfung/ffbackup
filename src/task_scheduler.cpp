@@ -1,5 +1,7 @@
 #include "task_scheduler.h"
 
+namespace ff_sched
+{
 ff_task::ff_task()
 {
     pthread_mutex_init(&this->mutex, NULL);
@@ -192,4 +194,5 @@ task_scheduler::~task_scheduler()
     pthread_mutex_destroy(&this->pending_mutex);
     pthread_mutex_destroy(&this->done_mutex);
     pthread_cond_destroy(&this->cond_ready);
+}
 }
