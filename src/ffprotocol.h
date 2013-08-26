@@ -5,6 +5,7 @@
 #include <list>
 #include <queue>
 #include <stdint.h>
+#include "task_scheduler.h"
 
 #define FF_DONE 0
 #define FF_AGAIN 1
@@ -12,6 +13,7 @@
 
 #define FF_ON_READ 1
 #define FF_ON_WRITE 2
+#define FF_ON_TIMEOUT 4
 
 class connection;
 
@@ -29,6 +31,42 @@ public:
     start_backup();
     ~start_backup();
     int update(connection *conn);
+};
+
+class get_hash_task : public ff_sched::ff_task
+{
+public:
+    get_hash_task(const std::string &prj, const std::list<std::string> &file_list);
+    ~get_hash_task();
+    void run();
+    bool is_finished(); //not thread-safe
+
+public:
+    std::list<char *> sha1_list;
+
+private:
+    std::list<std::string> file_list;
+    std::string project_name;
+    bool finished;
+};
+
+class get_hash : public ffcmd
+{
+public:
+    get_hash();
+    ~get_hash();
+    int update(connection *conn);
+
+private:
+    uint32_t size;
+    std::list<std::string> file_list;
+    enum
+    {
+        state_recv_size, state_recv_path, state_item_done,
+        state_wait_bg_task
+    }state;
+    get_hash_task *task;
+    bool task_owner;
 };
 
 class send_deletion : public ffcmd
@@ -102,6 +140,7 @@ public:
     void append_task(fftask task);
     bool wait_for_readable();
     bool wait_for_writable();
+    bool wait_for_timeout();
     void set_event(int ev);
 
 private:

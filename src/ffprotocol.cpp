@@ -10,6 +10,8 @@
 #include "config.h"
 #include "ffstorage.h"
 
+extern ff_sched::task_scheduler *g_task_sched;
+
 static bool get_protocol_string(ffbuffer *in, std::string *s)
 {
     bool found;
@@ -124,6 +126,129 @@ int start_backup::update(connection *conn)
         conn->out_buffer.push_back(&type, 1);
     }
     return FF_DONE;
+}
+
+get_hash_task::get_hash_task(const std::string &prj, const std::list<std::string> &file_list)
+{
+    this->file_list = file_list;
+    this->project_name = prj;
+    this->finished = false;
+}
+
+get_hash_task::~get_hash_task()
+{
+    std::list<char *>::iterator iter;
+    for(iter = this->sha1_list.begin(); iter != this->sha1_list.end(); ++iter)
+        delete *iter;
+}
+
+void get_hash_task::run()
+{
+    std::list<std::string>::iterator iter;
+    char *sha1;
+
+    for(iter = this->file_list.begin(); iter != this->file_list.end(); ++iter)
+    {
+        if(this->is_canceled())
+            return;
+        sha1 = new char[20];
+        if(!ffstorage::hash_sha1(this->project_name, *iter, sha1))
+        {
+            delete sha1;
+            return;
+        }
+        this->sha1_list.push_back(sha1);
+    }
+    this->finished = true;
+}
+
+bool get_hash_task::is_finished()
+{
+    return this->finished;
+}
+
+get_hash::get_hash()
+{
+    this->state = state_recv_size;
+    this->task = NULL;
+    this->task_owner = true;
+}
+
+get_hash::~get_hash()
+{
+    if(this->task)
+    {
+        if(this->task_owner)
+            delete this->task;
+        else
+            g_task_sched->cancel(this->task);
+    }
+}
+
+int get_hash::update(connection *conn)
+{
+    char hdr[2] = {2, 0};
+    uint32_t net_size;
+    std::string path;
+    std::list<char *>::iterator iter;
+
+    if(conn->processor.project_name.empty())
+        return FF_ERROR;
+    while(1)
+    {
+        switch(this->state)
+        {
+        case state_recv_size:
+            if(!get_protocol_uint32(&conn->in_buffer, &this->size))
+                return FF_AGAIN;
+            net_size = hton32(this->size);
+            conn->out_buffer.push_back(hdr, 2);
+            conn->out_buffer.push_back(&net_size, 4);
+            if(this->size == 0)
+                return FF_DONE;
+            this->state = state_recv_path;
+            break;
+
+        case state_recv_path:
+            if(!get_protocol_string(&conn->in_buffer, &path))
+                return FF_AGAIN;
+            if(!is_path_safe(path))
+                return FF_ERROR;
+            this->state = state_item_done;
+            break;
+
+        case state_item_done:
+            this->file_list.push_back(path);
+            --this->size;
+            if(this->size == 0)
+            {
+                this->task = new get_hash_task(conn->processor.project_name, this->file_list);
+                this->task_owner = false;
+                g_task_sched->submit(this->task);
+                conn->processor.set_event(FF_ON_TIMEOUT);
+                this->state = state_wait_bg_task;
+                return FF_AGAIN;
+            }
+            this->state = state_recv_path;
+            break;
+
+        case state_wait_bg_task:
+            if(!g_task_sched->checkout(this->task))
+                return FF_AGAIN;
+            this->task_owner = true;
+            if(!this->task->is_finished())
+                return FF_ERROR;
+            for(iter = this->task->sha1_list.begin();
+                iter != this->task->sha1_list.end(); ++iter)
+            {
+                if(*iter)
+                    conn->out_buffer.push_back(*iter, 20);
+                else
+                    return FF_ERROR;
+            }
+            return FF_DONE;
+        }
+    }
 }
 
 send_deletion::send_deletion()
@@ -375,6 +500,10 @@ void ffprotocol::update(connection *conn)
                 task.cmd = new start_backup();
                 task.initial_event = FF_ON_READ;
                 break;
+            case 0x02:
+                task.cmd = new get_hash();
+                task.initial_event = FF_ON_READ;
+                break;
             case 0x05:
                 task.cmd = new send_deletion();
                 task.initial_event = FF_ON_READ;
@@ -406,11 +535,17 @@ void ffprotocol::append_task(fftask task)
 
 bool ffprotocol::wait_for_readable()
 {
-    return (this->event == FF_ON_READ);
+    return (this->event & FF_ON_READ);
 }
+
 bool ffprotocol::wait_for_writable()
 {
-    return (this->event == FF_ON_WRITE);
+    return (this->event & FF_ON_WRITE);
+}
+
+bool ffprotocol::wait_for_timeout()
+{
+    return (this->event & FF_ON_TIMEOUT);
 }
 
 void ffprotocol::set_event(int ev)

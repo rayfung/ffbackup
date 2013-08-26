@@ -17,6 +17,7 @@
 #include "server.h"
 #include "task.h"
 #include "config.h"
+#include "task_scheduler.h"
 
 extern char *optarg;
 static BIO  *bio_err = NULL;
@@ -29,6 +30,7 @@ static int  tcp_listen(const char *host, const char *serv, socklen_t *len);
 const char *config_path = "./test/server.conf";
 server_config server_cfg;
 connection *conns;
+ff_sched::task_scheduler *g_task_sched;
 
 static void set_nonblocking(int sockfd)
 {
@@ -133,10 +135,32 @@ void main_loop(SSL_CTX *ctx, int sock_s)
     {
         int sock_c;
         int n;
+        struct timeval timeout;
 
         rset = rset_bak;
         wset = wset_bak;
-        n = select(maxfd + 1, &rset, &wset, NULL, NULL);
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+        n = select(maxfd + 1, &rset, &wset, NULL, &timeout);
+        if(n == 0)
+        {
+            for(int i = 0; i <= maxfd; ++i)
+            {
+                if(conns[i].sockfd != -1
+                        && conns[i].state == connection::state_processing
+                        && conns[i].processor.wait_for_timeout())
+                {
+                    conns[i].processor.update(&conns[i]);
+                    if(conns[i].state == connection::state_close)
+                    {
+                        clean_up_connection(i);
+                        FD_CLR(i, &rset_bak);
+                        FD_CLR(i, &wset_bak);
+                        fprintf(stderr, "close, %d\n\n", i);
+                    }
+                }
+            }
+        }
         if(n <= 0)
             continue;
 
@@ -250,6 +274,8 @@ int main( int argc, char **argv )
         perror("chdir");
         exit(EXIT_FAILURE);
     }
+
+    g_task_sched = new ff_sched::task_scheduler(2);
 
     conns = new connection[server_cfg.get_max_connection()];
     assert(conns != NULL);
