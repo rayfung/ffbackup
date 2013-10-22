@@ -139,7 +139,7 @@ get_hash_task::~get_hash_task()
 {
     std::list<char *>::iterator iter;
     for(iter = this->sha1_list.begin(); iter != this->sha1_list.end(); ++iter)
-        delete *iter;
+        delete[] *iter;
 }
 
 void get_hash_task::run()
@@ -154,7 +154,7 @@ void get_hash_task::run()
         sha1 = new char[20];
         if(!ffstorage::hash_sha1(this->project_name, *iter, sha1))
         {
-            delete sha1;
+            delete[] sha1;
             return;
         }
         this->sha1_list.push_back(sha1);
