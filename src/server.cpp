@@ -151,6 +151,18 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                         && conns[i].processor.wait_for_timeout())
                 {
                     conns[i].processor.update(&conns[i]);
+
+                    /* 避免频繁地被暂时不关注的事件触发，造成CPU资源的浪费 */
+                    if(conns[i].out_buffer.get_size() > 0 ||
+                            conns[i].processor.wait_for_writable())
+                        FD_SET(i, &wset_bak);
+                    else
+                        FD_CLR(i, &wset_bak);
+                    if(conns[i].processor.wait_for_readable())
+                        FD_SET(i, &rset_bak);
+                    else
+                        FD_CLR(i, &rset_bak);
+
                     if(conns[i].state == connection::state_close)
                     {
                         clean_up_connection(i);
