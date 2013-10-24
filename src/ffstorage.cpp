@@ -4,8 +4,9 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdio.h>
 #include <openssl/sha.h>
+#include <cstdio>
+#include <librsync.h>
 #include "ffstorage.h"
 
 namespace ffstorage
@@ -121,6 +122,40 @@ bool hash_sha1(const std::string &project_name, const std::string &path, void *h
     if(SHA1_Final((unsigned char *)hash, &ctx) == 0)
         return false;
     return true;
+}
+
+FILE *rsync_sig(const std::string &project_name, const std::string &path)
+{
+    std::string tmp;
+    FILE *basis_file;
+    FILE *sig_file;
+    size_t block_len = RS_DEFAULT_BLOCK_LEN;
+    size_t strong_len = RS_DEFAULT_STRONG_LEN;
+    rs_result ret;
+    rs_stats_t stats;
+
+    tmp = project_name + "/current/" + path;
+    basis_file = fopen(tmp.c_str(), "rb"); //打开旧文件
+    if(basis_file == NULL)
+        return NULL;
+
+    sig_file = tmpfile(); //创建签名文件
+    if(sig_file == NULL)
+    {
+        fclose(basis_file);
+        return NULL;
+    }
+
+    ret = rs_sig_file(basis_file, sig_file, block_len, strong_len, &stats);
+    fclose(basis_file);
+    if(ret)
+    {
+        fclose(sig_file);
+        return NULL;
+    }
+    fflush(sig_file);
+    rewind(sig_file);
+    return sig_file;
 }
 
 }
