@@ -1,6 +1,8 @@
 #include <algorithm>
-#include <stdio.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "helper.h"
 
 #define FF_LITTLE_ENDIAN 0
@@ -91,6 +93,17 @@ bool is_project_name_safe(const char *prj)
         ++prj;
     }
     return true;
+}
+
+uint64_t get_file_size(FILE *fp)
+{
+    struct stat buf;
+
+    if(fp == NULL)
+        return 0;
+    if(fstat(fileno(fp), &buf) < 0)
+        return 0;
+    return buf.st_size;
 }
 
 int get_byte_order()

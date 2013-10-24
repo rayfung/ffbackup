@@ -4,12 +4,14 @@
 #include <stdint.h>
 #include <string>
 #include <list>
+#include <cstdio>
 
 void dump_data(void *data, size_t size);
 
 std::list<std::string> split_path(const std::string &path);
 bool is_path_safe(const std::string &path);
 bool is_project_name_safe(const char *prj);
+uint64_t get_file_size(FILE *fp);
 
 uint16_t ntoh16(uint16_t net);
 
