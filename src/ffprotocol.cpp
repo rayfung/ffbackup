@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -247,6 +246,125 @@ int get_hash::update(connection *conn)
                     return FF_ERROR;
             }
             return FF_DONE;
+        }
+    }
+}
+
+get_sig_task::get_sig_task(const std::string &prj, const std::string &path)
+{
+    this->file_path = path;
+    this->project_name = prj;
+    this->finished = false;
+    this->sig_file = NULL;
+}
+
+get_sig_task::~get_sig_task()
+{
+    if(this->sig_file)
+        fclose(this->sig_file);
+}
+
+void get_sig_task::run()
+{
+    if(this->is_canceled())
+        return;
+    this->sig_file = ffstorage::rsync_sig(this->project_name, this->file_path);
+    this->finished = true;
+}
+
+bool get_sig_task::is_finished()
+{
+    return this->finished;
+}
+
+get_signature::get_signature()
+{
+    this->state = state_recv_size;
+    this->task = NULL;
+    this->task_owner = true;
+}
+
+get_signature::~get_signature()
+{
+    if(this->task)
+    {
+        if(this->task_owner)
+            delete this->task;
+        else
+            g_task_sched->cancel(this->task);
+    }
+}
+
+int get_signature::update(connection *conn)
+{
+    char hdr[2] = {2, 0};
+    uint32_t net_size;
+    uint64_t u64_net;
+    std::string path;
+    char buffer[1024];
+    size_t n;
+    uint64_t count;
+
+    if(conn->processor.project_name.empty())
+        return FF_ERROR;
+    while(1)
+    {
+        switch(this->state)
+        {
+        case state_recv_size:
+            if(!get_protocol_uint32(&conn->in_buffer, &this->size))
+                return FF_AGAIN;
+            net_size = hton32(this->size);
+            conn->out_buffer.push_back(hdr, 2);
+            conn->out_buffer.push_back(&net_size, 4);
+            if(this->size == 0)
+                return FF_DONE;
+            this->state = state_recv_path;
+            break;
+
+        case state_recv_path:
+            if(!get_protocol_string(&conn->in_buffer, &path))
+                return FF_AGAIN;
+            if(!is_path_safe(path))
+                return FF_ERROR;
+            this->state = state_item_done;
+            break;
+
+        case state_item_done:
+            --this->size;
+            this->task = new get_sig_task(conn->processor.project_name, path);
+            this->task_owner = false;
+            g_task_sched->submit(this->task);
+            conn->processor.set_event(FF_ON_TIMEOUT);
+            this->state = state_wait_bg_task;
+            break;
+
+        case state_wait_bg_task:
+            if(!g_task_sched->checkout(this->task))
+                return FF_AGAIN;
+            this->task_owner = true;
+            if(!this->task->is_finished())
+                return FF_ERROR;
+            if(this->task->sig_file == NULL)
+                return FF_ERROR;
+            count = get_file_size(this->task->sig_file);
+            u64_net = hton64(count);
+            conn->out_buffer.push_back(&u64_net, 8);
+            while((n = fread(buffer, 1, sizeof(buffer), this->task->sig_file)) > 0)
+            {
+                conn->out_buffer.push_back(buffer, n);
+                count -= n;
+            }
+            if(count)
+                return FF_ERROR;
+            if(this->size == 0)
+                return FF_DONE;
+            else
+            {
+                conn->processor.set_event(FF_ON_READ);
+                this->state = state_recv_path;
+            }
+            break;
         }
     }
 }
@@ -502,6 +620,10 @@ void ffprotocol::update(connection *conn)
                 break;
             case 0x02:
                 task.cmd = new get_hash();
+                task.initial_event = FF_ON_READ;
+                break;
+            case 0x03:
+                task.cmd = new get_signature();
                 task.initial_event = FF_ON_READ;
                 break;
             case 0x05:

@@ -5,6 +5,7 @@
 #include <list>
 #include <queue>
 #include <stdint.h>
+#include <cstdio>
 #include "task_scheduler.h"
 
 #define FF_DONE 0
@@ -66,6 +67,42 @@ private:
         state_wait_bg_task
     }state;
     get_hash_task *task;
+    bool task_owner;
+};
+
+class get_sig_task : public ff_sched::ff_task
+{
+public:
+    get_sig_task(const std::string &prj, const std::string &path);
+    ~get_sig_task();
+    void run();
+    bool is_finished(); //not thread-safe
+
+public:
+    FILE *sig_file;
+
+private:
+    std::string file_path;
+    std::string project_name;
+    bool finished;
+};
+
+class get_signature : public ffcmd
+{
+public:
+    get_signature();
+    ~get_signature();
+    int update(connection *conn);
+
+private:
+    uint32_t size;
+    std::string file_path;
+    enum
+    {
+        state_recv_size, state_recv_path, state_item_done,
+        state_wait_bg_task
+    }state;
+    get_sig_task *task;
     bool task_owner;
 };
 
