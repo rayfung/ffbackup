@@ -369,6 +369,91 @@ int get_signature::update(connection *conn)
     }
 }
 
+send_delta::send_delta()
+{
+    this->state = state_recv_size;
+    this->file_fd = -1;
+}
+
+send_delta::~send_delta()
+{
+    if(this->file_fd != -1)
+        close(this->file_fd);
+}
+
+int send_delta::update(connection *conn)
+{
+    if(conn->processor.project_name.empty())
+        return FF_ERROR;
+    while(1)
+    {
+        switch(this->state)
+        {
+        case state_recv_size:
+            if(!get_protocol_uint32(&conn->in_buffer, &this->size))
+                return FF_AGAIN;
+            if(this->size == 0)
+            {
+                char hdr[2] = {2, 0};
+                conn->out_buffer.push_back(hdr, 2);
+                return FF_DONE;
+            }
+            this->state = state_recv_path;
+            break;
+
+        case state_recv_path:
+            if(!get_protocol_string(&conn->in_buffer, &this->path))
+                return FF_AGAIN;
+            if(!is_path_safe(this->path))
+                return FF_ERROR;
+            this->state = state_recv_data_size;
+            break;
+
+        case state_recv_data_size:
+            if(!get_protocol_uint64(&conn->in_buffer, &this->data_size))
+                return FF_AGAIN;
+            this->file_fd = ffstorage::begin_delta(conn->processor.project_name, this->path);
+            if(this->file_fd == -1)
+                return FF_ERROR;
+            this->state = state_recv_data;
+            break;
+
+        case state_recv_data:
+            while(this->data_size > 0)
+            {
+                char buffer[1024];
+                size_t size = sizeof(buffer);
+
+                if(size > this->data_size)
+                    size = this->data_size;
+                size = conn->in_buffer.get(buffer, 0, size);
+                conn->in_buffer.pop_front(size);
+                if(size == 0)
+                    return FF_AGAIN;
+                write(this->file_fd, buffer, size);
+                this->data_size -= size;
+            }
+            close(this->file_fd);
+            this->file_fd = -1;
+            ffstorage::end_delta(conn->processor.project_name, this->path);
+            this->state = state_item_done;
+            break;
+
+        case state_item_done:
+            --this->size;
+            if(this->size == 0)
+            {
+                char hdr[2] = {2, 0};
+                conn->out_buffer.push_back(hdr, 2);
+                return FF_DONE;
+            }
+            this->state = state_recv_path;
+            break;
+        }
+    }
+    return FF_DONE;
+}
+
 send_deletion::send_deletion()
 {
     this->state = state_recv_size;
@@ -624,6 +709,10 @@ void ffprotocol::update(connection *conn)
                 break;
             case 0x03:
                 task.cmd = new get_signature();
+                task.initial_event = FF_ON_READ;
+                break;
+            case 0x04:
+                task.cmd = new send_delta();
                 task.initial_event = FF_ON_READ;
                 break;
             case 0x05:

@@ -106,6 +106,26 @@ private:
     bool task_owner;
 };
 
+class send_delta : public ffcmd
+{
+public:
+    send_delta();
+    ~send_delta();
+    int update(connection *conn);
+
+private:
+    enum
+    {
+        state_recv_size, state_recv_path,
+        state_recv_data_size, state_recv_data,
+        state_item_done
+    }state;
+    uint32_t size;
+    std::string path;
+    uint64_t data_size;
+    int file_fd;
+};
+
 class send_deletion : public ffcmd
 {
 public:

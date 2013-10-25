@@ -82,6 +82,22 @@ void end_add(const std::string &project_name, const std::string &path)
 {
 }
 
+int begin_delta(const std::string &project_name, const std::string &path)
+{
+    std::string s = path;
+
+    for(size_t i = 0; i < s.size(); ++i)
+    {
+        if(s[i] == '/')
+            s[i] = '_';
+    }
+    return creat((project_name + "/cache/" + s + ".delta").c_str(), 0644);
+}
+
+void end_delta(const std::string &project_name, const std::string &path)
+{
+}
+
 void dir_add(const std::string &project_name, const std::string &path)
 {
     mkdir((project_name + "/cache/" + path).c_str(), 0775);
