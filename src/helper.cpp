@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <sstream>
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -125,6 +126,14 @@ uint64_t get_file_size(FILE *fp)
     if(fstat(fileno(fp), &buf) < 0)
         return 0;
     return buf.st_size;
+}
+
+std::string size2string(size_t size)
+{
+    std::ostringstream s;
+
+    s << size;
+    return s.str();
 }
 
 int get_byte_order()

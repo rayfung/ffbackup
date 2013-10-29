@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <librsync.h>
 #include "ffstorage.h"
+#include "helper.h"
 
 namespace ffstorage
 {
@@ -63,6 +64,8 @@ bool prepare(const char *project_name)
     mkdir(project_name, 0775);
     mkdir((path + "/current").c_str(), 0775);
     mkdir((path + "/cache").c_str(), 0775);
+    mkdir((path + "/cache/rc").c_str(), 0775);
+    mkdir((path + "/history").c_str(), 0775);
     return true;
 }
 
@@ -85,20 +88,20 @@ void end_add(const std::string &project_name, const std::string &path)
 {
 }
 
-int begin_delta(const std::string &project_name, const std::string &path)
+int begin_delta(const std::string &project_name, size_t index)
 {
-    std::string s = path;
+    std::string s = size2string(index);
 
-    for(size_t i = 0; i < s.size(); ++i)
-    {
-        if(s[i] == '/')
-            s[i] = '_';
-    }
-    return creat((project_name + "/cache/" + s + ".delta").c_str(), 0644);
+    return creat((project_name + "/cache/patch." + s).c_str(), 0644);
 }
 
-void end_delta(const std::string &project_name, const std::string &path)
+bool end_delta(const std::string &project_name, const std::string &path, size_t index)
 {
+    std::string basis_path = project_name + "/current/" + path;
+    std::string patch_path = project_name + "/cache/patch." + size2string(index);
+    std::string new_path   = project_name + "/cache/rc/" + size2string(index);
+
+    return rsync_patch(basis_path, patch_path, new_path);
 }
 
 void dir_add(const std::string &project_name, const std::string &path)
@@ -177,6 +180,63 @@ FILE *rsync_sig(const std::string &project_name, const std::string &path)
     fflush(sig_file);
     rewind(sig_file);
     return sig_file;
+}
+
+bool rsync_patch(const std::string &basis_file_path, const std::string &patch_file_path,
+                 const std::string &new_file_path)
+{
+    FILE *basis_file;
+    FILE *delta_file;
+    rs_result ret;
+    FILE *new_file;
+    rs_stats_t stats;
+
+    basis_file = fopen(basis_file_path.c_str(), "rb");
+    if(basis_file == NULL)
+        return false;
+
+    delta_file = fopen(patch_file_path.c_str(), "rb");
+    if(delta_file == NULL)
+    {
+        fclose(basis_file);
+        return false;
+    }
+
+    new_file = fopen(new_file_path.c_str(), "wb");
+    if(new_file == NULL)
+    {
+        fclose(basis_file);
+        fclose(delta_file);
+        return false;
+    }
+
+    ret = rs_patch_file(basis_file, delta_file, new_file, &stats);
+    fclose(basis_file);
+    fclose(delta_file);
+    fclose(new_file);
+    return (ret == RS_DONE);
+}
+
+bool _write_list(const std::list<file_info> &file_list, std::string path)
+{
+    FILE *fp;
+    std::list<file_info>::const_iterator iter;
+
+    fp = fopen(path.c_str(), "wb");
+    if(fp == NULL)
+        return false;
+    for(iter = file_list.begin(); iter != file_list.end(); ++iter)
+    {
+        fputc(iter->type, fp);
+        fwrite(iter->path.c_str(), iter->path.size() + 1, 1, fp);
+    }
+    fclose(fp);
+    return true;
+}
+
+bool write_patch_list(const std::string &project_name, const std::list<file_info> &file_list)
+{
+    return _write_list(file_list, project_name + "/cache/patch_list");
 }
 
 }

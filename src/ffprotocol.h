@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <cstdio>
 #include "task_scheduler.h"
+#include "ffstorage.h"
 
 #define FF_DONE 0
 #define FF_AGAIN 1
@@ -126,9 +127,11 @@ private:
         state_item_done
     }state;
     uint32_t size;
+    size_t index;
     std::string path;
     uint64_t data_size;
     int file_fd;
+    std::list<file_info> file_list;
 };
 
 class send_deletion : public ffcmd

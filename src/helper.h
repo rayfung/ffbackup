@@ -12,6 +12,7 @@ std::list<std::string> split_path(const std::string &path);
 bool is_path_safe(const std::string &path);
 bool is_project_name_safe(const char *prj);
 uint64_t get_file_size(FILE *fp);
+std::string size2string(size_t size);
 
 uint16_t ntoh16(uint16_t net);
 

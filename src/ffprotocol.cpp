@@ -7,7 +7,6 @@
 #include "ffbuffer.h"
 #include "helper.h"
 #include "config.h"
-#include "ffstorage.h"
 
 extern ff_sched::task_scheduler *g_task_sched;
 
@@ -376,6 +375,7 @@ send_delta::send_delta()
 {
     this->state = state_recv_size;
     this->file_fd = -1;
+    this->index = 0;
 }
 
 send_delta::~send_delta()
@@ -386,6 +386,8 @@ send_delta::~send_delta()
 
 int send_delta::update(connection *conn)
 {
+    file_info info;
+
     if(conn->processor.project_name.empty())
         return FF_ERROR;
     while(1)
@@ -401,6 +403,8 @@ int send_delta::update(connection *conn)
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
             }
+            this->index = 0;
+            this->file_list.clear();
             this->state = state_recv_path;
             break;
 
@@ -409,13 +413,17 @@ int send_delta::update(connection *conn)
                 return FF_AGAIN;
             if(!is_path_safe(this->path))
                 return FF_ERROR;
+
+            info.path = this->path;
+            info.type = 'f';
+            this->file_list.push_back(info);
             this->state = state_recv_data_size;
             break;
 
         case state_recv_data_size:
             if(!get_protocol_uint64(&conn->in_buffer, &this->data_size))
                 return FF_AGAIN;
-            this->file_fd = ffstorage::begin_delta(conn->processor.project_name, this->path);
+            this->file_fd = ffstorage::begin_delta(conn->processor.project_name, index);
             if(this->file_fd == -1)
                 return FF_ERROR;
             this->state = state_recv_data;
@@ -438,15 +446,17 @@ int send_delta::update(connection *conn)
             }
             close(this->file_fd);
             this->file_fd = -1;
-            ffstorage::end_delta(conn->processor.project_name, this->path);
+            ffstorage::end_delta(conn->processor.project_name, this->path, index);
             this->state = state_item_done;
             break;
 
         case state_item_done:
+            ++this->index;
             --this->size;
             if(this->size == 0)
             {
                 char hdr[2] = {2, 0};
+                ffstorage::write_patch_list(conn->processor.project_name, this->file_list);
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
             }
