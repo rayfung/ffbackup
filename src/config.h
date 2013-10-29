@@ -29,15 +29,15 @@ private:
     const static size_t host_max = 128;
     const static size_t service_max = 32;
     const static size_t passwd_max = 32;
-    int max_connection;
-    char backup_root[path_max];
-    enum protocol protocol;
-    char host[host_max];
-    char service[service_max];
-    char ca_file[path_max];
-    char cert_file[path_max];
-    char key_file[path_max];
-    char key_file_passwd[passwd_max];
+    int max_connection;                //最大 TCP 连接数
+    char backup_root[path_max];        //所有项目的存储目录
+    enum protocol protocol;            //使用的 SSL/TLS 协议版本
+    char host[host_max];               //监听套接字绑定的地址
+    char service[service_max];         //监听套接字绑定的服务（端口）
+    char ca_file[path_max];            //CA 公钥文件路径
+    char cert_file[path_max];          //服务端公钥文件路径
+    char key_file[path_max];           //服务端私钥文件路径
+    char key_file_passwd[passwd_max];  //服务端私钥文件密码
 };
 
 #endif

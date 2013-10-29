@@ -8,6 +8,7 @@
 #define FF_LITTLE_ENDIAN 0
 #define FF_BIG_ENDIAN 1
 
+/* 以十六进制的形式输出数据到标准错误输出，此函数仅用于调试 */
 void dump_data(void *data, size_t size)
 {
     unsigned char *ptr = (unsigned char *)data;
@@ -16,6 +17,15 @@ void dump_data(void *data, size_t size)
         fprintf(stderr, "%02X ", (int)ptr[i]);
 }
 
+/**
+ * 将一个路径以 '/' 为分隔符分割成若干个部分，如果路径以 '/' 开头，那么它会被当成是第一部分
+ * 分割后的任何部分都不会再包含 '/'，除非参数是一个绝对路径，此时，第一部分是单个字符 '/'
+ *
+ * 例子：
+ *   "/var/log" -> {"/", "var", "log"}
+ *   "history/0/" -> {"history", "0"}
+ *   "./cache///patch" -> {".", "cache", "patch"}
+ */
 std::list<std::string> split_path(const std::string &path)
 {
     size_t path_len;
@@ -64,6 +74,16 @@ std::list<std::string> split_path(const std::string &path)
     return component_list;
 }
 
+/**
+ * 检查路径是否"安全"
+ *
+ * 一个"安全"的路径必须满足以下所有条件：
+ * 1.路径不为空
+ * 2.路径不包含空字符
+ * 3.不是绝对路径
+ * 4.路径中所有组成部分都不能为 ".."
+ *
+ */
 bool is_path_safe(const std::string &path)
 {
     std::list<std::string> component_list;
@@ -82,6 +102,7 @@ bool is_path_safe(const std::string &path)
     return true;
 }
 
+/* 检查项目名是否合法 */
 bool is_project_name_safe(const char *prj)
 {
     if(prj[0] == '\0')
