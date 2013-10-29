@@ -26,6 +26,7 @@ public:
     virtual int update(connection *conn) = 0;
 };
 
+/* 处理协议中的“开始备份”命令 */
 class start_backup : public ffcmd
 {
 public:
@@ -34,6 +35,7 @@ public:
     int update(connection *conn);
 };
 
+/* 在另外一个线程中处理文件的散列值的计算 */
 class get_hash_task : public ff_sched::ff_task
 {
 public:
@@ -51,6 +53,7 @@ private:
     bool finished;
 };
 
+/* 处理协议中的“获取散列值”命令 */
 class get_hash : public ffcmd
 {
 public:
@@ -70,6 +73,7 @@ private:
     bool task_owner;
 };
 
+/* 在另外一个线程中处理 rsync 签名的计算任务 */
 class get_sig_task : public ff_sched::ff_task
 {
 public:
@@ -87,6 +91,7 @@ private:
     bool finished;
 };
 
+/* 处理协议中的“获取签名”命令 */
 class get_signature : public ffcmd
 {
 public:

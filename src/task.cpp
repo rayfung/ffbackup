@@ -10,6 +10,7 @@
 
 extern connection *conns;
 
+/* 从 SSL 缓冲区读取数据并处理 */
 void read_task(int sockfd)
 {
     connection *conn = &conns[sockfd];
@@ -43,6 +44,7 @@ void read_task(int sockfd)
     }while(SSL_pending(ssl));
 }
 
+/* 处理数据之后再将应用缓冲区中的数据发送出去 */
 void write_task(int sockfd)
 {
     connection *conn = &conns[sockfd];

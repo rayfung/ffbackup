@@ -11,6 +11,7 @@
 
 extern ff_sched::task_scheduler *g_task_sched;
 
+/* 从缓冲区中取出一个空字符结尾的字符串，如果能够完整取出的话，那么返回 true，否则返回 false */
 static bool get_protocol_string(ffbuffer *in, std::string *s)
 {
     bool found;
@@ -38,6 +39,7 @@ static bool get_protocol_char(ffbuffer *in, char *c)
     return true;
 }
 
+/* 取出一个网络字节序的 32 位整数，并转换为本机字节序 */
 static bool get_protocol_uint32(ffbuffer *in, uint32_t *u32)
 {
     if(in->get_size() < 4)
@@ -48,6 +50,7 @@ static bool get_protocol_uint32(ffbuffer *in, uint32_t *u32)
     return true;
 }
 
+/* 取出一个网络字节序的 64 位整数，并转换为本机字节序 */
 static bool get_protocol_uint64(ffbuffer *in, uint64_t *u64)
 {
     if(in->get_size() < 8)

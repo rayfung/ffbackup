@@ -12,6 +12,7 @@
 namespace ffstorage
 {
 
+/* 存储模块内部辅助函数，扫描目录中的普通文件和目录，并将结果添加到 result 里面 */
 static void _scan_dir(const std::string &base, std::string dir, std::list<file_info> *result)
 {
     DIR *dp;
@@ -52,6 +53,7 @@ static void _scan_dir(const std::string &base, std::string dir, std::list<file_i
     closedir(dp);
 }
 
+/* 准备好一个项目，创建必须的文件和目录 */
 bool prepare(const char *project_name)
 {
     std::string path;
@@ -64,6 +66,7 @@ bool prepare(const char *project_name)
     return true;
 }
 
+/* 目录扫描，忽略普通文件和目录之外的文件（如符号链接） */
 void scan(const char *project_name, std::list<file_info> *result)
 {
     std::string base;
@@ -113,6 +116,7 @@ void mark_deletion(const std::string &project_name, const std::list<std::string>
     fprintf(stderr, "\n[END mark_deletion]\n");
 }
 
+/* 计算指定项目的指定文件的 SHA-1 散列值 */
 bool hash_sha1(const std::string &project_name, const std::string &path, void *hash)
 {
     SHA_CTX ctx;
@@ -140,6 +144,7 @@ bool hash_sha1(const std::string &project_name, const std::string &path, void *h
     return true;
 }
 
+/* 生成指定项目的指定文件的 rsync 签名文件 */
 FILE *rsync_sig(const std::string &project_name, const std::string &path)
 {
     std::string tmp;
