@@ -142,7 +142,7 @@ public:
     int update(connection *conn);
 
 private:
-    std::list<std::string> file_list;
+    std::list<file_info> file_list;
     uint32_t size;
     enum
     {

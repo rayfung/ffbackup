@@ -479,6 +479,7 @@ send_deletion::~send_deletion()
 int send_deletion::update(connection *conn)
 {
     std::string path;
+    file_info info;
 
     if(conn->processor.project_name.empty())
         return FF_ERROR;
@@ -507,13 +508,15 @@ int send_deletion::update(connection *conn)
             break;
 
         case state_item_done:
-            this->file_list.push_back(path);
+            info.path = path;
+            info.type = ffstorage::get_file_type(conn->processor.project_name, path);
+            this->file_list.push_back(info);
             --this->size;
             if(this->size == 0)
             {
                 char hdr[2] = {2, 0};
 
-                ffstorage::mark_deletion(conn->processor.project_name, this->file_list);
+                ffstorage::write_del_list(conn->processor.project_name, this->file_list);
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
             }

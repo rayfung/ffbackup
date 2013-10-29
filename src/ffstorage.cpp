@@ -109,16 +109,6 @@ void dir_add(const std::string &project_name, const std::string &path)
     mkdir((project_name + "/cache/" + path).c_str(), 0775);
 }
 
-void mark_deletion(const std::string &project_name, const std::list<std::string> &file_list)
-{
-    std::list<std::string>::const_iterator iter;
-
-    fprintf(stderr, "\n[BEGIN mark_deletion]\n");
-    for(iter = file_list.begin(); iter != file_list.end(); ++iter)
-        fprintf(stderr, "%s\n", iter->c_str());
-    fprintf(stderr, "\n[END mark_deletion]\n");
-}
-
 /* 计算指定项目的指定文件的 SHA-1 散列值 */
 bool hash_sha1(const std::string &project_name, const std::string &path, void *hash)
 {
@@ -237,6 +227,26 @@ bool _write_list(const std::list<file_info> &file_list, std::string path)
 bool write_patch_list(const std::string &project_name, const std::list<file_info> &file_list)
 {
     return _write_list(file_list, project_name + "/cache/patch_list");
+}
+
+bool write_del_list(const std::string &project_name, const std::list<file_info> &file_list)
+{
+    return _write_list(file_list, project_name + "/cache/deletion_list");
+}
+
+/* 普通文件返回 'f'，目录返回 'd'，其它情况返回 '?' */
+char get_file_type(const std::string &project_name, const std::string &path)
+{
+    struct stat buf;
+
+    if(lstat((project_name + "/current/" + path).c_str(), &buf) == 0)
+    {
+        if(S_ISREG(buf.st_mode))
+            return 'f';
+        if(S_ISDIR(buf.st_mode))
+            return 'd';
+    }
+    return '?';
 }
 
 }

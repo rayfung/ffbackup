@@ -20,7 +20,6 @@ void scan(const char *project_name, std::list<file_info> *result);
 int begin_add(const std::string &project_name, const std::string &path);
 void end_add(const std::string &project_name, const std::string &path);
 void dir_add(const std::string &project_name, const std::string &path);
-void mark_deletion(const std::string &project_name, const std::list<std::string> &file_list);
 bool hash_sha1(const std::string &project_name, const std::string &path, void *hash);
 FILE *rsync_sig(const std::string &project_name, const std::string &path);
 int begin_delta(const std::string &project_name, size_t index);
@@ -28,6 +27,8 @@ bool end_delta(const std::string &project_name, const std::string &path, size_t 
 bool rsync_patch(const std::string &basis_file_path, const std::string &patch_file_path,
                  const std::string &new_file_path);
 bool write_patch_list(const std::string &project_name, const std::list<file_info> &file_list);
+bool write_del_list(const std::string &project_name, const std::list<file_info> &file_list);
+char get_file_type(const std::string &project_name, const std::string &path);
 
 }
 
