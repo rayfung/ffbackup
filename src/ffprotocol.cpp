@@ -633,17 +633,68 @@ int send_addition::update(connection *conn)
     return FF_DONE;
 }
 
+finish_bak_task::finish_bak_task(const std::string &prj)
+{
+    this->project_name = prj;
+    this->finished = false;
+}
+
+finish_bak_task::~finish_bak_task()
+{
+}
+
+void finish_bak_task::run()
+{
+    size_t id;
+    std::string history_path;
+
+    id = ffstorage::get_history_qty(this->project_name);
+    history_path = project_name + "/history/" + size2string(id);
+    if(rename((project_name + "/cache").c_str(), history_path.c_str()) < 0)
+        return;
+    this->finished = true;
+}
+
+bool finish_bak_task::is_finished()
+{
+    return this->finished;
+}
+
 finish_backup::finish_backup()
 {
+    this->task = NULL;
+    this->task_owner = true;
 }
 
 finish_backup::~finish_backup()
 {
+    if(this->task)
+    {
+        if(this->task_owner)
+            delete this->task;
+        else
+            g_task_sched->cancel(this->task);
+    }
 }
 
 int finish_backup::update(connection *conn)
 {
     char hdr[2] = {2, 0};
+
+    if(this->task == NULL)
+    {
+        this->task = new finish_bak_task(conn->processor.project_name);
+        this->task_owner = false;
+        g_task_sched->submit(this->task);
+        conn->processor.set_event(FF_ON_TIMEOUT);
+        return FF_AGAIN;
+    }
+
+    if(!g_task_sched->checkout(this->task))
+        return FF_AGAIN;
+    this->task_owner = true;
+    if(!this->task->is_finished())
+        return FF_ERROR;
     conn->out_buffer.push_back(hdr, 2);
     return FF_DONE;
 }

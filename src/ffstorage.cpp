@@ -256,4 +256,19 @@ char get_file_type(const std::string &project_name, const std::string &path)
     return '?';
 }
 
+/* 获取备份次数（包括未完成的） */
+size_t get_history_qty(const std::string &project_name)
+{
+    size_t num;
+    std::string base_path = project_name + "/history/";
+    struct stat buf;
+
+    for(num = 0; ; ++num)
+    {
+        if(lstat((base_path + size2string(num)).c_str(), &buf) < 0)
+            return num;
+    }
+    return 0;
+}
+
 }

@@ -173,12 +173,29 @@ private:
     size_t index;
 };
 
+class finish_bak_task : public ff_sched::ff_task
+{
+public:
+    finish_bak_task(const std::string &prj);
+    ~finish_bak_task();
+    void run();
+    bool is_finished(); //not thread-safe
+
+private:
+    std::string project_name;
+    bool finished;
+};
+
 class finish_backup : public ffcmd
 {
 public:
     finish_backup();
     ~finish_backup();
     int update(connection *conn);
+
+private:
+    finish_bak_task *task;
+    bool task_owner;
 };
 
 class no_operation : public ffcmd
