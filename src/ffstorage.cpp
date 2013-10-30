@@ -79,9 +79,11 @@ void scan(const char *project_name, std::list<file_info> *result)
     _scan_dir(base, std::string(), result);
 }
 
-int begin_add(const std::string &project_name, const std::string &path)
+int begin_add(const std::string &project_name, size_t index)
 {
-    return creat((project_name + "/cache/" + path).c_str(), 0644);
+    std::string s = size2string(index);
+
+    return creat((project_name + "/cache/" + s).c_str(), 0644);
 }
 
 void end_add(const std::string &project_name, const std::string &path)
@@ -232,6 +234,11 @@ bool write_patch_list(const std::string &project_name, const std::list<file_info
 bool write_del_list(const std::string &project_name, const std::list<file_info> &file_list)
 {
     return _write_list(file_list, project_name + "/cache/deletion_list");
+}
+
+bool write_add_list(const std::string &project_name, const std::list<file_info> &file_list)
+{
+    return _write_list(file_list, project_name + "/cache/addition_list");
 }
 
 /* 普通文件返回 'f'，目录返回 'd'，其它情况返回 '?' */

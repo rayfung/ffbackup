@@ -169,6 +169,8 @@ private:
     char type;
     uint64_t data_size;
     int file_fd;
+    std::list<file_info> file_list;
+    size_t index;
 };
 
 class finish_backup : public ffcmd

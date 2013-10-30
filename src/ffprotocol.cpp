@@ -541,6 +541,8 @@ send_addition::~send_addition()
 
 int send_addition::update(connection *conn)
 {
+    file_info info;
+
     if(conn->processor.project_name.empty())
         return FF_ERROR;
     while(1)
@@ -556,6 +558,8 @@ int send_addition::update(connection *conn)
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
             }
+            this->file_list.clear();
+            this->index = 0;
             this->state = state_recv_path;
             break;
 
@@ -571,11 +575,11 @@ int send_addition::update(connection *conn)
             if(!get_protocol_char(&conn->in_buffer, &this->type))
                 return FF_AGAIN;
             fprintf(stderr, "[dump] path=%s type=%c\n", this->path.c_str(), this->type);
+            info.path = this->path;
+            info.type = this->type;
+            this->file_list.push_back(info);
             if(this->type == 'd')
-            {
-                ffstorage::dir_add(conn->processor.project_name, this->path);
                 this->state = state_item_done;
-            }
             else if(this->type == 'f')
                 this->state = state_recv_data_size;
             else
@@ -585,7 +589,7 @@ int send_addition::update(connection *conn)
         case state_recv_data_size:
             if(!get_protocol_uint64(&conn->in_buffer, &this->data_size))
                 return FF_AGAIN;
-            this->file_fd = ffstorage::begin_add(conn->processor.project_name, this->path);
+            this->file_fd = ffstorage::begin_add(conn->processor.project_name, this->index);
             if(this->file_fd == -1)
                 return FF_ERROR;
             this->state = state_recv_data;
@@ -613,10 +617,12 @@ int send_addition::update(connection *conn)
             break;
 
         case state_item_done:
+            ++this->index;
             --this->size;
             if(this->size == 0)
             {
                 char hdr[2] = {2, 0};
+                ffstorage::write_add_list(conn->processor.project_name, this->file_list);
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
             }
