@@ -3,6 +3,8 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include "helper.h"
 
@@ -134,6 +136,54 @@ std::string size2string(size_t size)
 
     s << size;
     return s.str();
+}
+
+bool rm_recursive(const std::string &path)
+{
+    pid_t pid;
+
+    pid = fork();
+    if(pid < 0)
+        return false;
+    if(pid == 0)
+    {
+        execl("/bin/rm", "/bin/rm", "-r", "--", path.c_str(), (char *)NULL);
+        exit(0);
+    }
+    else
+    {
+        int status;
+        waitpid(pid, &status, 0);
+    }
+    return true;
+}
+
+/* 复制文件，如果目标路径已经存在，那么它会先被清空 */
+bool copy_file(const std::string &src_path, const std::string &dst_path)
+{
+    int src_fd, dst_fd;
+    char buffer[1024];
+    ssize_t ret;
+
+    src_fd = open(src_path.c_str(), O_RDONLY);
+    if(src_fd < 0)
+        return false;
+
+    dst_fd = creat(dst_path.c_str(), 0644);
+    if(dst_fd < 0)
+    {
+        close(src_fd);
+        return false;
+    }
+
+    while((ret = read(src_fd, buffer, sizeof(buffer))) > 0)
+    {
+        write(dst_fd, buffer, ret);
+    }
+
+    close(src_fd);
+    close(dst_fd);
+    return true;
 }
 
 int get_byte_order()

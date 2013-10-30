@@ -7,6 +7,7 @@
 #include <openssl/sha.h>
 #include <cstdio>
 #include <librsync.h>
+#include <time.h>
 #include "ffstorage.h"
 #include "helper.h"
 
@@ -269,6 +270,22 @@ size_t get_history_qty(const std::string &project_name)
             return num;
     }
     return 0;
+}
+
+bool write_info(const std::string &project_name, size_t index)
+{
+    std::string path;
+    int fd;
+    uint32_t net_time;
+
+    path = project_name + "/history/" + size2string(index) + "/info";
+    fd = creat(path.c_str(), 0644);
+    if(fd < 0)
+        return false;
+    net_time = hton32(time(NULL));
+    write(fd, &net_time, 4);
+    close(fd);
+    return true;
 }
 
 }

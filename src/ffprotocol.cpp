@@ -457,6 +457,7 @@ int send_delta::update(connection *conn)
             {
                 char hdr[2] = {2, 0};
                 ffstorage::write_patch_list(conn->processor.project_name, this->file_list);
+                conn->processor.patch_list = this->file_list;
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
             }
@@ -517,6 +518,7 @@ int send_deletion::update(connection *conn)
                 char hdr[2] = {2, 0};
 
                 ffstorage::write_del_list(conn->processor.project_name, this->file_list);
+                conn->processor.deletion_list = this->file_list;
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
             }
@@ -623,6 +625,7 @@ int send_addition::update(connection *conn)
             {
                 char hdr[2] = {2, 0};
                 ffstorage::write_add_list(conn->processor.project_name, this->file_list);
+                conn->processor.addition_list = this->file_list;
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
             }
@@ -633,9 +636,16 @@ int send_addition::update(connection *conn)
     return FF_DONE;
 }
 
-finish_bak_task::finish_bak_task(const std::string &prj)
+finish_bak_task::finish_bak_task(
+        const std::string &prj,
+        const std::list<file_info> &patch_list,
+        const std::list<file_info> &deletion_list,
+        const std::list<file_info> &addition_list)
 {
     this->project_name = prj;
+    this->patch_list = patch_list;
+    this->deletion_list = deletion_list;
+    this->addition_list = addition_list;
     this->finished = false;
 }
 
@@ -647,11 +657,36 @@ void finish_bak_task::run()
 {
     size_t id;
     std::string history_path;
+    std::list<file_info>::iterator iter;
+    size_t index;
 
     id = ffstorage::get_history_qty(this->project_name);
     history_path = project_name + "/history/" + size2string(id);
     if(rename((project_name + "/cache").c_str(), history_path.c_str()) < 0)
         return;
+    //将 patch 后的文件移动到 current 目录中
+    index = 0;
+    for(iter = this->patch_list.begin(); iter != this->patch_list.end(); ++iter)
+    {
+        rename((history_path + "/rc/" + size2string(index)).c_str(),
+               (project_name + "/current/" + iter->path).c_str());
+        ++index;
+    }
+    //递归删除列表中的文件
+    for(iter = this->deletion_list.begin(); iter != this->deletion_list.end(); ++iter)
+        rm_recursive(project_name + "/current/" + iter->path);
+    //将新增的文件复制到相应目录下
+    index = 0;
+    for(iter = this->addition_list.begin(); iter != this->addition_list.end(); ++iter)
+    {
+        if(iter->type == 'f')
+            copy_file(history_path + "/" + size2string(index),
+                      project_name + "/current/" + iter->path);
+        else if(iter->type == 'd')
+            mkdir((project_name + "/current/" + iter->path).c_str(), 0775);
+        ++index;
+    }
+    ffstorage::write_info(project_name, id);
     this->finished = true;
 }
 
@@ -683,7 +718,11 @@ int finish_backup::update(connection *conn)
 
     if(this->task == NULL)
     {
-        this->task = new finish_bak_task(conn->processor.project_name);
+        this->task = new finish_bak_task(
+                    conn->processor.project_name,
+                    conn->processor.patch_list,
+                    conn->processor.deletion_list,
+                    conn->processor.addition_list);
         this->task_owner = false;
         g_task_sched->submit(this->task);
         conn->processor.set_event(FF_ON_TIMEOUT);
@@ -840,6 +879,10 @@ void ffprotocol::set_event(int ev)
 void ffprotocol::reset()
 {
     this->event = FF_ON_READ;
+    this->project_name.clear();
+    this->patch_list.clear();
+    this->deletion_list.clear();
+    this->addition_list.clear();
     while(!this->task_queue.empty())
     {
         fftask task = this->task_queue.front();

@@ -176,13 +176,18 @@ private:
 class finish_bak_task : public ff_sched::ff_task
 {
 public:
-    finish_bak_task(const std::string &prj);
+    finish_bak_task(const std::string &prj, const std::list<file_info> &patch_list,
+                    const std::list<file_info> &deletion_list,
+                    const std::list<file_info> &addition_list);
     ~finish_bak_task();
     void run();
     bool is_finished(); //not thread-safe
 
 private:
     std::string project_name;
+    std::list<file_info> patch_list;
+    std::list<file_info> deletion_list;
+    std::list<file_info> addition_list;
     bool finished;
 };
 
@@ -232,6 +237,9 @@ private:
 
 public:
     std::string project_name;
+    std::list<file_info> patch_list;
+    std::list<file_info> deletion_list;
+    std::list<file_info> addition_list;
 
 private:
     int event;

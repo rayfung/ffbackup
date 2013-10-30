@@ -13,6 +13,8 @@ bool is_path_safe(const std::string &path);
 bool is_project_name_safe(const char *prj);
 uint64_t get_file_size(FILE *fp);
 std::string size2string(size_t size);
+bool rm_recursive(const std::string &path);
+bool copy_file(const std::string &src_path, const std::string &dst_path);
 
 uint16_t ntoh16(uint16_t net);
 
