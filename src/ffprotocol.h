@@ -176,7 +176,8 @@ private:
 class finish_bak_task : public ff_sched::ff_task
 {
 public:
-    finish_bak_task(const std::string &prj, const std::list<file_info> &patch_list,
+    finish_bak_task(const std::string &prj, uint64_t task_id,
+                    const std::list<file_info> &patch_list,
                     const std::list<file_info> &deletion_list,
                     const std::list<file_info> &addition_list);
     ~finish_bak_task();
@@ -185,6 +186,7 @@ public:
 
 private:
     std::string project_name;
+    uint64_t task_id;
     std::list<file_info> patch_list;
     std::list<file_info> deletion_list;
     std::list<file_info> addition_list;
@@ -237,6 +239,7 @@ private:
 
 public:
     std::string project_name;
+    uint64_t task_id;
     std::list<file_info> patch_list;
     std::list<file_info> deletion_list;
     std::list<file_info> addition_list;

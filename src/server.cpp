@@ -13,6 +13,7 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <assert.h>
+#include <time.h>
 
 #include "server.h"
 #include "task.h"
@@ -278,6 +279,8 @@ int main( int argc, char **argv )
 {
     int sock_s;
     SSL_CTX *ctx;
+
+    srandom(time(NULL));
 
     if(server_cfg.read_config(config_path) == false)
         exit(EXIT_FAILURE);

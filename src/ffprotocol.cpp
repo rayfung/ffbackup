@@ -7,6 +7,7 @@
 #include "ffbuffer.h"
 #include "helper.h"
 #include "config.h"
+#include "task_lock.h"
 
 extern ff_sched::task_scheduler *g_task_sched;
 
@@ -97,7 +98,17 @@ int start_backup::update(connection *conn)
         delete[] prj;
         return FF_ERROR;
     }
-    ffstorage::prepare(prj);
+    if(!ffstorage::prepare(prj))
+    {
+        delete[] prj;
+        return FF_ERROR;
+    }
+    conn->processor.task_id = random();
+    if(!ff_trylock(std::string(prj), conn->processor.task_id))
+    {
+        delete[] prj;
+        return FF_ERROR;
+    }
     ffstorage::scan(prj, &result);
 
     fprintf(stderr, "\n[BEGIN dump]\n");
@@ -637,12 +648,13 @@ int send_addition::update(connection *conn)
 }
 
 finish_bak_task::finish_bak_task(
-        const std::string &prj,
+        const std::string &prj, uint64_t task_id,
         const std::list<file_info> &patch_list,
         const std::list<file_info> &deletion_list,
         const std::list<file_info> &addition_list)
 {
     this->project_name = prj;
+    this->task_id = task_id;
     this->patch_list = patch_list;
     this->deletion_list = deletion_list;
     this->addition_list = addition_list;
@@ -659,6 +671,9 @@ void finish_bak_task::run()
     std::string history_path;
     std::list<file_info>::iterator iter;
     size_t index;
+
+    if(!ff_trylock(this->project_name, this->task_id))
+        return;
 
     id = ffstorage::get_history_qty(this->project_name);
     history_path = project_name + "/history/" + size2string(id);
@@ -688,6 +703,8 @@ void finish_bak_task::run()
     }
     ffstorage::write_info(project_name, id);
     this->finished = true;
+
+    ff_unlock(this->project_name, this->task_id);
 }
 
 bool finish_bak_task::is_finished()
@@ -716,10 +733,14 @@ int finish_backup::update(connection *conn)
 {
     char hdr[2] = {2, 0};
 
+    if(conn->processor.project_name.empty())
+        return FF_ERROR;
+
     if(this->task == NULL)
     {
         this->task = new finish_bak_task(
                     conn->processor.project_name,
+                    conn->processor.task_id,
                     conn->processor.patch_list,
                     conn->processor.deletion_list,
                     conn->processor.addition_list);
@@ -762,6 +783,7 @@ int no_operation::update(connection *conn)
 ffprotocol::ffprotocol()
 {
     this->event = FF_ON_READ;
+    this->task_id = 0;
 }
 
 ffprotocol::~ffprotocol()
@@ -878,7 +900,9 @@ void ffprotocol::set_event(int ev)
 
 void ffprotocol::reset()
 {
+    ff_unlock(this->project_name, this->task_id);
     this->event = FF_ON_READ;
+    this->task_id = 0;
     this->project_name.clear();
     this->patch_list.clear();
     this->deletion_list.clear();
