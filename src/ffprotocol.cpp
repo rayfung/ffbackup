@@ -98,13 +98,14 @@ int start_backup::update(connection *conn)
         delete[] prj;
         return FF_ERROR;
     }
-    if(!ffstorage::prepare(prj))
+    mkdir(prj, 0775); //创建项目目录(权限为 rwxrwxr-x)
+    conn->processor.task_id = random();
+    if(!ff_trylock(std::string(prj), conn->processor.task_id))
     {
         delete[] prj;
         return FF_ERROR;
     }
-    conn->processor.task_id = random();
-    if(!ff_trylock(std::string(prj), conn->processor.task_id))
+    if(!ffstorage::prepare(prj))
     {
         delete[] prj;
         return FF_ERROR;

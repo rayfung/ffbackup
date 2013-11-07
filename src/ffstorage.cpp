@@ -62,7 +62,7 @@ bool prepare(const char *project_name)
 
     path.assign(project_name);
 
-    mkdir(project_name, 0775);
+    rm_recursive(path + "/cache");
     mkdir((path + "/current").c_str(), 0775);
     mkdir((path + "/cache").c_str(), 0775);
     mkdir((path + "/cache/rc").c_str(), 0775);
