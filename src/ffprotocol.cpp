@@ -84,6 +84,7 @@ int start_backup::update(connection *conn)
     char *prj = NULL;
     std::list<file_info> result;
     std::list<file_info>::iterator iter;
+    uint64_t task_id;
 
     n = conn->in_buffer.find('\0', &found);
     if(!found)
@@ -99,12 +100,13 @@ int start_backup::update(connection *conn)
         return FF_ERROR;
     }
     mkdir(prj, 0775); //创建项目目录(权限为 rwxrwxr-x)
-    conn->processor.task_id = random();
-    if(!ff_trylock(std::string(prj), conn->processor.task_id))
+    task_id = random();
+    if(!ff_trylock(std::string(prj), task_id))
     {
         delete[] prj;
         return FF_ERROR;
     }
+    conn->processor.task_id = task_id;
     if(!ffstorage::prepare(prj))
     {
         delete[] prj;
@@ -834,7 +836,6 @@ void ffprotocol::update(connection *conn)
                 task.initial_event = FF_ON_READ;
                 break;
             case 0x01:
-                this->project_name.clear();
                 task.cmd = new start_backup();
                 task.initial_event = FF_ON_READ;
                 break;
