@@ -288,4 +288,30 @@ bool write_info(const std::string &project_name, size_t index)
     return true;
 }
 
+std::list<std::string> get_project_list()
+{
+    std::list<std::string> prj_list;
+    DIR *dp;
+    struct dirent *entry;
+    struct stat statbuf;
+
+    dp = opendir(".");
+    if(dp == NULL)
+        return prj_list;
+    while((entry = readdir(dp)) != NULL)
+    {
+        if(lstat(entry->d_name, &statbuf) < 0)
+            continue;
+        if(S_ISDIR(statbuf.st_mode))
+        {
+            if(strcmp(".", entry->d_name) == 0 ||
+                    strcmp("..", entry->d_name) == 0)
+                continue;
+            prj_list.push_back(std::string(entry->d_name));
+        }
+    }
+    closedir(dp);
+    return prj_list;
+}
+
 }

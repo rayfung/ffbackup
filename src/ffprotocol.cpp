@@ -762,6 +762,32 @@ int finish_backup::update(connection *conn)
     return FF_DONE;
 }
 
+client_get_prj::client_get_prj()
+{
+}
+
+client_get_prj::~client_get_prj()
+{
+}
+
+int client_get_prj::update(connection *conn)
+{
+    char hdr[2] = {2, 0};
+    std::list<std::string> prj_list;
+    std::list<std::string>::iterator iter;
+    uint32_t list_size;
+
+    prj_list = ffstorage::get_project_list();
+    conn->out_buffer.push_back(hdr, 2);
+    list_size = hton32(prj_list.size());
+    conn->out_buffer.push_back(&list_size, 4);
+    for(iter = prj_list.begin(); iter != prj_list.end(); ++iter)
+    {
+        conn->out_buffer.push_back(iter->c_str(), iter->size() + 1);
+    }
+    return FF_DONE;
+}
+
 no_operation::no_operation()
 {
 }
@@ -861,6 +887,10 @@ void ffprotocol::update(connection *conn)
                 break;
             case 0x07:
                 task.cmd = new finish_backup();
+                task.initial_event = FF_ON_WRITE;
+                break;
+            case 0x08:
+                task.cmd = new client_get_prj();
                 task.initial_event = FF_ON_WRITE;
                 break;
             default:

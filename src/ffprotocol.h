@@ -205,6 +205,14 @@ private:
     bool task_owner;
 };
 
+class client_get_prj : public ffcmd
+{
+public:
+    client_get_prj();
+    ~client_get_prj();
+    int update(connection *conn);
+};
+
 class no_operation : public ffcmd
 {
 public:

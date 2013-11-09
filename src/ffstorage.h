@@ -32,6 +32,7 @@ bool write_add_list(const std::string &project_name, const std::list<file_info> 
 char get_file_type(const std::string &project_name, const std::string &path);
 size_t get_history_qty(const std::string &project_name);
 bool write_info(const std::string &project_name, size_t index);
+std::list<std::string> get_project_list();
 
 }
 
