@@ -213,6 +213,14 @@ public:
     int update(connection *conn);
 };
 
+class client_get_time_line : public ffcmd
+{
+public:
+    client_get_time_line();
+    ~client_get_time_line();
+    int update(connection *conn);
+};
+
 class no_operation : public ffcmd
 {
 public:

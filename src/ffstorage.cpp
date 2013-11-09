@@ -314,4 +314,30 @@ std::list<std::string> get_project_list()
     return prj_list;
 }
 
+/* 获取项目备份历史，返回的列表中的元素表示备份完成时间，它是网络字节序的 */
+std::list<uint32_t> get_project_time_line(const std::string &project_name)
+{
+    size_t index;
+    std::string base = project_name + "/history/";
+    std::string path;
+    int fd;
+    std::list<uint32_t> time_line;
+    ssize_t ret;
+    uint32_t finish_time;
+
+    for(index = 0; ; ++index)
+    {
+        path = base + size2string(index) + "/info";
+        fd = open(path.c_str(), O_RDONLY);
+        if(fd < 0)
+            break;
+        ret = read(fd, &finish_time, 4);
+        close(fd);
+        if(ret != 4)
+            break;
+        time_line.push_back(finish_time);
+    }
+    return time_line;
+}
+
 }

@@ -788,6 +788,43 @@ int client_get_prj::update(connection *conn)
     return FF_DONE;
 }
 
+client_get_time_line::client_get_time_line()
+{
+}
+
+client_get_time_line::~client_get_time_line()
+{
+}
+
+int client_get_time_line::update(connection *conn)
+{
+    std::string prj_name;
+    std::list<uint32_t> time_line;
+    std::list<uint32_t>::iterator iter;
+    uint32_t index;
+    uint32_t list_size;
+    char hdr[2] = {2, 0};
+
+    if(!get_protocol_string(&conn->in_buffer, &prj_name))
+        return FF_AGAIN;
+    if(!is_project_name_safe(prj_name.c_str()))
+        return FF_ERROR;
+    time_line = ffstorage::get_project_time_line(prj_name);
+    list_size = hton32(time_line.size());
+    conn->out_buffer.push_back(hdr, 2);
+    conn->out_buffer.push_back(&list_size, 4);
+    for(index = 0, iter = time_line.begin(); iter != time_line.end(); ++iter, ++index)
+    {
+        uint32_t tmp;
+
+        tmp = hton32(index);
+        conn->out_buffer.push_back(&tmp, 4);
+        tmp = *iter;
+        conn->out_buffer.push_back(&tmp, 4);
+    }
+    return FF_DONE;
+}
+
 no_operation::no_operation()
 {
 }
@@ -892,6 +929,10 @@ void ffprotocol::update(connection *conn)
             case 0x08:
                 task.cmd = new client_get_prj();
                 task.initial_event = FF_ON_WRITE;
+                break;
+            case 0x09:
+                task.cmd = new client_get_time_line();
+                task.initial_event = FF_ON_READ;
                 break;
             default:
                 conn->state = connection::state_close;
