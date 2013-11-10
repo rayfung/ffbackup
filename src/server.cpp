@@ -28,7 +28,7 @@ static void sigpipe_handle( int );
 static int  password_cb( char *, int, int, void * );
 static int  tcp_listen(const char *host, const char *serv, socklen_t *len);
 
-const char *config_path = "./test/server.conf";
+const char *config_path = "/etc/ffbackup/server.conf";
 server_config server_cfg;
 connection *conns;
 ff_sched::task_scheduler *g_task_sched;
