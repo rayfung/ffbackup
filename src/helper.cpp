@@ -147,7 +147,7 @@ bool rm_recursive(const std::string &path)
         return false;
     if(pid == 0)
     {
-        execl("/bin/rm", "/bin/rm", "-r", "--", path.c_str(), (char *)NULL);
+        execl("/bin/rm", "/bin/rm", "-rf", "--", path.c_str(), (char *)NULL);
         exit(0);
     }
     else
