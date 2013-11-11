@@ -681,7 +681,11 @@ void finish_bak_task::run()
     id = ffstorage::get_history_qty(this->project_name);
     history_path = project_name + "/history/" + size2string(id);
     if(rename((project_name + "/cache").c_str(), history_path.c_str()) < 0)
+    {
+        ff_unlock(this->project_name, this->task_id);
         return;
+    }
+
     //将 patch 后的文件移动到 current 目录中
     index = 0;
     for(iter = this->patch_list.begin(); iter != this->patch_list.end(); ++iter)
