@@ -221,6 +221,47 @@ public:
     int update(connection *conn);
 };
 
+class client_restore_task : public ff_sched::ff_task
+{
+public:
+    client_restore_task(const std::string &prj, uint32_t id, uint64_t task_id);
+    ~client_restore_task();
+    void run();
+    bool is_finished(); //not thread-safe
+
+public:
+    std::list<file_info> file_list;
+    std::string base_path;
+
+private:
+    bool finished;
+    std::string prj;
+    uint32_t id;
+    uint64_t task_id;
+};
+
+class client_restore : public ffcmd
+{
+public:
+    client_restore();
+    ~client_restore();
+    int update(connection *conn);
+
+private:
+    enum
+    {
+        state_recv_prj, state_recv_id,
+        state_wait, state_response,
+        state_send_file, state_item_done
+    }state;
+    std::string prj;
+    uint32_t id;
+    client_restore_task *task;
+    bool task_owner;
+    int fd;
+    uint64_t file_size;
+};
+
 class no_operation : public ffcmd
 {
 public:

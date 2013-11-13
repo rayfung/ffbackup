@@ -829,6 +829,168 @@ int client_get_time_line::update(connection *conn)
     return FF_DONE;
 }
 
+client_restore_task::client_restore_task(const std::string &prj, uint32_t id,
+                                         uint64_t task_id)
+{
+    this->prj      = prj;
+    this->id       = id;
+    this->task_id  = task_id;
+    this->finished = false;
+}
+
+client_restore_task::~client_restore_task()
+{
+}
+
+bool client_restore_task::is_finished()
+{
+    return this->finished;
+}
+
+void client_restore_task::run()
+{
+    if(!ff_trylock(this->prj, this->task_id))
+        return;
+    this->base_path = ffstorage::begin_restore(this->prj, this->id, &this->file_list);
+    if(!this->base_path.empty())
+        this->finished = true;
+    ff_unlock(this->prj, this->task_id);
+}
+
+client_restore::client_restore()
+{
+    this->state      = state_recv_prj;
+    this->task       = NULL;
+    this->task_owner = true;
+    this->fd         = -1;
+}
+
+client_restore::~client_restore()
+{
+    if(this->task)
+    {
+        if(this->task_owner)
+            delete this->task;
+        else
+            g_task_sched->cancel(this->task);
+    }
+    if(this->fd >= 0)
+        close(this->fd);
+}
+
+int client_restore::update(connection *conn)
+{
+    char hdr[2] = {2, 0};
+    uint32_t list_size;
+    file_info *info;
+    uint64_t task_id;
+
+    while(1)
+    {
+        switch(this->state)
+        {
+        case state_recv_prj:
+            if(!get_protocol_string(&conn->in_buffer, &this->prj))
+                return FF_AGAIN;
+            if(!is_project_name_safe(prj.c_str()))
+                return FF_ERROR;
+            task_id = random();
+            if(!ff_trylock(std::string(prj), task_id))
+                return FF_ERROR;
+            conn->processor.task_id = task_id;
+            this->state = state_recv_id;
+            break;
+
+        case state_recv_id:
+            if(!get_protocol_uint32(&conn->in_buffer, &this->id))
+                return FF_AGAIN;
+            this->task = new client_restore_task(this->prj, this->id,
+                                                 conn->processor.task_id);
+            this->task_owner = false;
+            g_task_sched->submit(this->task);
+            conn->processor.set_event(FF_ON_TIMEOUT);
+            this->state = state_wait;
+            break;
+
+        case state_wait:
+            if(!g_task_sched->checkout(this->task))
+                return FF_AGAIN;
+            this->task_owner = true;
+            if(!this->task->is_finished())
+                return FF_ERROR;
+            conn->out_buffer.push_back(hdr, 2);
+            list_size = hton32(this->task->file_list.size());
+            conn->out_buffer.push_back(&list_size, 4);
+            conn->processor.set_event(FF_ON_WRITE);
+            this->state = state_response;
+            break;
+
+        case state_response:
+            if(this->task->file_list.empty())
+            {
+                ffstorage::end_restore(this->prj);
+                return FF_DONE;
+            }
+            info = &this->task->file_list.front();
+            conn->out_buffer.push_back(info->path.c_str(), info->path.size() + 1);
+            conn->out_buffer.push_back(&info->type, 1);
+            if(info->type == 'f')
+            {
+                uint64_t u64;
+                struct stat buf;
+                std::string real_path = this->task->base_path + "/" + info->path;
+
+                this->fd = open(real_path.c_str(), O_RDONLY);
+                if(this->fd < 0)
+                    return FF_ERROR;
+                if(fstat(this->fd, &buf) < 0)
+                    return FF_ERROR;
+                this->file_size = buf.st_size;
+                u64 = hton64(this->file_size);
+                conn->out_buffer.push_back(&u64, 8);
+                if(this->file_size == 0)
+                    this->state = state_item_done;
+                else
+                    this->state = state_send_file;
+            }
+            else
+                this->state = state_item_done;
+            break;
+
+        case state_send_file:
+            do
+            {
+                char buffer[1024];
+                size_t n = sizeof(buffer);
+                ssize_t ret;
+
+                if(n > this->file_size)
+                    n = this->file_size;
+                ret = read(this->fd, buffer, n);
+                if(ret < 0 || (size_t)ret != n)
+                    return FF_ERROR;
+                conn->out_buffer.push_back(buffer, n);
+                this->file_size -= n;
+                if(this->file_size == 0)
+                    this->state = state_item_done;
+                else
+                    return FF_AGAIN;
+            }while(0);
+            break;
+
+        case state_item_done:
+            if(this->fd >= 0)
+            {
+                close(this->fd);
+                this->fd = -1;
+            }
+            this->task->file_list.pop_front();
+            this->state = state_response;
+            break;
+        }
+    }
+}
+
 no_operation::no_operation()
 {
 }
@@ -936,6 +1098,10 @@ void ffprotocol::update(connection *conn)
                 break;
             case 0x09:
                 task.cmd = new client_get_time_line();
+                task.initial_event = FF_ON_READ;
+                break;
+            case 0x0A:
+                task.cmd = new client_restore();
                 task.initial_event = FF_ON_READ;
                 break;
             default:
