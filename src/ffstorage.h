@@ -35,6 +35,8 @@ size_t get_history_qty(const std::string &project_name);
 bool write_info(const std::string &project_name, size_t index);
 std::list<std::string> get_project_list();
 std::list<uint32_t> get_project_time_line(const std::string &project_name);
+std::string begin_restore(const std::string &prj, size_t id, std::list<file_info> *file_list);
+void end_restore(const std::string &prj);
 
 }
 

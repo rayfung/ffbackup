@@ -340,4 +340,48 @@ std::list<uint32_t> get_project_time_line(const std::string &project_name)
     return time_line;
 }
 
+/* FIXME */
+bool _restore(const std::string &storage_path, const std::string &patch_path)
+{
+    return false;
+}
+
+/**
+ *
+ * 恢复到历史 #id，并将恢复后的文件列表存入 file_list
+ * 如果恢复发生错误，则返回空字符串，否则返回恢复的目录路径
+ *
+ */
+std::string begin_restore(const std::string &prj, size_t id, std::list<file_info> *file_list)
+{
+    std::string base = prj + "/tmp";
+    size_t count;
+    size_t index;
+
+    file_list->clear();
+    rm_recursive(base);
+    if(mkdir(base.c_str(), 0775) < 0)
+        return std::string();
+    count = get_history_qty(prj);
+    if(id >= count)
+        return std::string();
+    if(count > 0 && id == count - 1) //如果是最近一次的历史，则直接返回 current 目录中的文件
+    {
+        scan(prj.c_str(), file_list);
+        return prj + "/current";
+    }
+    for(index = 0; index <= id; ++index)
+    {
+        if(!_restore(base, prj + "/history/" + size2string(index)))
+            return std::string();
+    }
+    _scan_dir(base + "/", std::string(), file_list);
+    return base;
+}
+
+void end_restore(const std::string &prj)
+{
+    rm_recursive(prj + "/tmp");
+}
+
 }
