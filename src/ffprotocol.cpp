@@ -892,11 +892,12 @@ int client_restore::update(connection *conn)
         case state_recv_prj:
             if(!get_protocol_string(&conn->in_buffer, &this->prj))
                 return FF_AGAIN;
-            if(!is_project_name_safe(prj.c_str()))
+            if(!is_project_name_safe(this->prj.c_str()))
                 return FF_ERROR;
             task_id = random();
-            if(!ff_trylock(std::string(prj), task_id))
+            if(!ff_trylock(this->prj, task_id))
                 return FF_ERROR;
+            conn->processor.project_name = this->prj;
             conn->processor.task_id = task_id;
             this->state = state_recv_id;
             break;
