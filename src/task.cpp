@@ -52,8 +52,9 @@ void write_task(int sockfd)
     int ret;
     int len;
     char buffer[1024];
+    size_t max_size = 2048L * 1024L; //2 MiB
 
-    if(conn->processor.wait_for_writable())
+    if(conn->processor.wait_for_writable() && conn->out_buffer.get_size() < max_size)
         conn->processor.update(conn);
     if(conn->state == connection::state_close)
         return;
