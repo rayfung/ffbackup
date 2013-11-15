@@ -384,7 +384,7 @@ bool _read_list(const std::string &path, std::list<file_info> *file_list)
 }
 
 bool _restore(const std::string &project_name,
-              const std::string &storage_path, const std::string &patch_path)
+              const std::string &storage_path, const std::string &history_path)
 {
     std::list<file_info> patch_list;
     std::list<file_info> deletion_list;
@@ -392,11 +392,11 @@ bool _restore(const std::string &project_name,
     std::list<file_info>::iterator iter;
     size_t index;
 
-    if(!_read_list(patch_path + "/patch_list", &patch_list))
+    if(!_read_list(history_path + "/patch_list", &patch_list))
         return false;
-    if(!_read_list(patch_path + "/deletion_list", &deletion_list))
+    if(!_read_list(history_path + "/deletion_list", &deletion_list))
         return false;
-    if(!_read_list(patch_path + "/addition_list", &addition_list))
+    if(!_read_list(history_path + "/addition_list", &addition_list))
         return false;
 
     //rsync patch
@@ -408,7 +408,7 @@ bool _restore(const std::string &project_name,
         std::string output;
 
         basis = storage_path + "/" + iter->path;
-        patch = patch_path + "/patch." + size2string(index);
+        patch = history_path + "/patch." + size2string(index);
         output = project_name + "/tmp_ffbackup";
         rsync_patch(basis, patch, output);
         rename(output.c_str(), basis.c_str());
@@ -427,7 +427,7 @@ bool _restore(const std::string &project_name,
     {
         std::string path(storage_path + "/" + iter->path);
         if(iter->type == 'f')
-            copy_file(patch_path + "/" + size2string(index), path);
+            copy_file(history_path + "/" + size2string(index), path);
         else if(iter->type == 'd')
             mkdir(path.c_str(), 0775);
         ++index;
