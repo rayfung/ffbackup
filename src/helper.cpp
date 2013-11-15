@@ -84,7 +84,7 @@ std::list<std::string> split_path(const std::string &path)
  * 1.路径不为空
  * 2.路径不包含空字符
  * 3.不是绝对路径
- * 4.路径中所有组成部分都不能为 ".."
+ * 4.路径中所有组成部分都不能为 ".." 或者 "."
  *
  */
 bool is_path_safe(const std::string &path)
@@ -100,6 +100,9 @@ bool is_path_safe(const std::string &path)
     if(component_list.size() > 0 && component_list.front() == std::string("/"))
         return false;
     if(std::find(component_list.begin(), component_list.end(), std::string(".."))
+            != component_list.end())
+        return false;
+    if(std::find(component_list.begin(), component_list.end(), std::string("."))
             != component_list.end())
         return false;
     return true;
