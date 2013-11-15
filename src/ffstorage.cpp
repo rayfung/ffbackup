@@ -10,6 +10,7 @@
 #include <time.h>
 #include "ffstorage.h"
 #include "helper.h"
+#include "ffbuffer.h"
 
 namespace ffstorage
 {
@@ -340,10 +341,98 @@ std::list<uint32_t> get_project_time_line(const std::string &project_name)
     return time_line;
 }
 
-/* FIXME */
-bool _restore(const std::string &storage_path, const std::string &patch_path)
+/**
+ * 如果能够完整地读取所有元素，则返回 true，否则返回 false
+ * 并且将读取到的元素存放在 file_list 中
+ */
+bool _read_list(const std::string &path, std::list<file_info> *file_list)
 {
-    return false;
+    ffbuffer buffer;
+    int fd;
+    char tmp[1024];
+    ssize_t ret;
+    bool found;
+    size_t pos;
+
+    file_list->clear();
+    fd = open(path.c_str(), O_RDONLY);
+    if(fd < 0)
+        return true;
+    while((ret = read(fd, tmp, sizeof(tmp))) > 0)
+        buffer.push_back(tmp, ret);
+    close(fd);
+
+    while(buffer.get_size() > 0)
+    {
+        char *ptr;
+        file_info info;
+
+        pos = buffer.find('\0', &found);
+        if(!found || pos < 2)
+            return false;
+        ptr = new char[pos + 1];
+        buffer.get(ptr, 0, pos + 1);
+        buffer.pop_front(pos + 1);
+        info.type = ptr[0];
+        info.path.assign(ptr + 1);
+        delete[] ptr;
+        if(info.type != 'f' && info.type != 'd')
+            return false;
+        file_list->push_back(info);
+    }
+    return true;
+}
+
+bool _restore(const std::string &project_name,
+              const std::string &storage_path, const std::string &patch_path)
+{
+    std::list<file_info> patch_list;
+    std::list<file_info> deletion_list;
+    std::list<file_info> addition_list;
+    std::list<file_info>::iterator iter;
+    size_t index;
+
+    if(!_read_list(patch_path + "/patch_list", &patch_list))
+        return false;
+    if(!_read_list(patch_path + "/deletion_list", &deletion_list))
+        return false;
+    if(!_read_list(patch_path + "/addition_list", &addition_list))
+        return false;
+
+    //rsync patch
+    index = 0;
+    for(iter = patch_list.begin(); iter != patch_list.end(); ++iter)
+    {
+        std::string basis;
+        std::string patch;
+        std::string output;
+
+        basis = storage_path + "/" + iter->path;
+        patch = patch_path + "/patch." + size2string(index);
+        output = project_name + "/tmp_ffbackup";
+        rsync_patch(basis, patch, output);
+        rename(output.c_str(), basis.c_str());
+        ++index;
+    }
+
+    //process deletion list
+    for(iter = deletion_list.begin(); iter != deletion_list.end(); ++iter)
+    {
+        rm_recursive(storage_path + "/" + iter->path);
+    }
+
+    //process addition list
+    index = 0;
+    for(iter = addition_list.begin(); iter != addition_list.end(); ++iter)
+    {
+        std::string path(storage_path + "/" + iter->path);
+        if(iter->type == 'f')
+            copy_file(patch_path + "/" + size2string(index), path);
+        else if(iter->type == 'd')
+            mkdir(path.c_str(), 0775);
+        ++index;
+    }
+    return true;
 }
 
 /**
@@ -372,7 +461,7 @@ std::string begin_restore(const std::string &prj, size_t id, std::list<file_info
     }
     for(index = 0; index <= id; ++index)
     {
-        if(!_restore(base, prj + "/history/" + size2string(index)))
+        if(!_restore(prj, base, prj + "/history/" + size2string(index)))
             return std::string();
     }
     _scan_dir(base + "/", std::string(), file_list);
