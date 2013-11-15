@@ -106,6 +106,8 @@ int start_backup::update(connection *conn)
         delete[] prj;
         return FF_ERROR;
     }
+    //后续操作需要用到这个项目名称
+    conn->processor.project_name.assign(prj);
     conn->processor.task_id = task_id;
     if(!ffstorage::prepare(prj))
     {
@@ -121,8 +123,6 @@ int start_backup::update(connection *conn)
     }
     fprintf(stderr, "[END dump]\n\n");
 
-    //后续操作需要用到这个项目名称
-    conn->processor.project_name.assign(prj);
     delete[] prj;
 
     char hdr[2] = {2, 0};
