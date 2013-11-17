@@ -315,6 +315,15 @@ int main( int argc, char **argv )
         }
     }
 
+    if(run_as_daemon)
+    {
+        if(daemon(0, 0) < 0)
+        {
+            perror("daemon");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     srandom(time(NULL));
 
     if(server_cfg.read_config(config_path) == false)
