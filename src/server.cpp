@@ -296,6 +296,11 @@ int main( int argc, char **argv )
                 fprintf(stderr, "no enough memory\n");
                 exit(EXIT_FAILURE);
             }
+            if(config_path[0] != '/')
+            {
+                fprintf(stderr, "config path must be absolute path\n");
+                exit(EXIT_FAILURE);
+            }
             break;
         case 'h':
             fprintf(stderr, "Usage: %s [-d] [-f <config>] [-h]\n\n", argv[0]);
