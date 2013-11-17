@@ -279,6 +279,36 @@ int main( int argc, char **argv )
 {
     int sock_s;
     SSL_CTX *ctx;
+    int opt;
+    bool run_as_daemon = false;
+
+    while((opt = getopt(argc, argv, "df:h")) != -1)
+    {
+        switch(opt)
+        {
+        case 'd':
+            run_as_daemon = true;
+            break;
+        case 'f':
+            config_path = strdup(optarg);
+            if(config_path == NULL)
+            {
+                fprintf(stderr, "no enough memory\n");
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'h':
+            fprintf(stderr, "Usage: %s [-d] [-f <config>] [-h]\n\n", argv[0]);
+            fprintf(stderr, "\t-d:\t\t run as daemon\n");
+            fprintf(stderr, "\t-f <config>:\t load configuration\n");
+            fprintf(stderr, "\t-h:\t\t print this information and exit\n\n");
+            exit(EXIT_SUCCESS);
+            break;
+        default:
+            fprintf(stderr, "Usage: %s [-d] [-f <config>] [-h]\n\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    }
 
     srandom(time(NULL));
 
