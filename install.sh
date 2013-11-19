@@ -20,7 +20,7 @@ cp -v -n -t "$CONFIG_PATH" server.conf
 
 echo
 echo 'creating user ffbackup'
-id -u ffbackup >/dev/null 2>&1 || useradd -c 'FFBackup System' -d /nonexistent -M -s /bin/false ffbackup
+id -u ffbackup >/dev/null 2>&1 || useradd -c 'FFBackup System' -d /nonexistent -M -r -s /bin/false ffbackup
 
 echo
 echo 'installation finished'
