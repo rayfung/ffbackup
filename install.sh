@@ -16,7 +16,7 @@ echo 'copying files...'
 mkdir -p "$INST_PATH"
 mkdir -p "$CONFIG_PATH"
 cp -v -f -t "$INST_PATH" ffbackup-server
-cp -v -f -t "$CONFIG_PATH" server.conf
+cp -v -n -t "$CONFIG_PATH" server.conf
 
 echo
 echo 'creating user ffbackup'
