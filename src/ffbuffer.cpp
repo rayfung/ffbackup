@@ -25,7 +25,7 @@ void ffbuffer::print_chunk_info()
     int n = 1;
     while(ptr != NULL)
     {
-        printf("chunk #%d: %d bytes\n", n, ptr->size);
+        printf("chunk #%d: %d bytes\n", n, (int)ptr->size);
         ++n;
         ptr = ptr->link;
     }
