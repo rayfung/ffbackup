@@ -371,6 +371,8 @@ int get_signature::update(connection *conn)
                 conn->out_buffer.push_back(buffer, n);
                 count -= n;
             }
+            delete this->task;
+            this->task = NULL;
             if(count)
                 return FF_ERROR;
             if(this->size == 0)
