@@ -31,6 +31,10 @@ public:
     unsigned char at(size_t index);
 
 private:
+    ffbuffer(const ffbuffer &);
+    ffbuffer& operator=(const ffbuffer &);
+
+private:
     size_t buffer_size;
     ffchunk *head_ptr;
     ffchunk *tail_ptr;
