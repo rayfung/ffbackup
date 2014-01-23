@@ -23,6 +23,7 @@ public:
     const char *get_cert_file() const;
     const char *get_key_file() const;
     const char *get_key_file_password() const;
+    int get_timeout() const;
 
 private:
     const static size_t path_max = PATH_MAX;

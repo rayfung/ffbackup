@@ -19,6 +19,7 @@ public:
     ffprotocol processor;
     ffbuffer in_buffer;
     ffbuffer out_buffer;
+    struct timespec tcp_accept_time;
 };
 
 #endif

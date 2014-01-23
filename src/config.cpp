@@ -221,6 +221,11 @@ const char *server_config::get_key_file_password() const
     return this->key_file_passwd;
 }
 
+int server_config::get_timeout() const
+{
+    return 10;
+}
+
 server_config::~server_config()
 {
 }

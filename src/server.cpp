@@ -19,6 +19,7 @@
 #include "task.h"
 #include "config.h"
 #include "task_scheduler.h"
+#include "helper.h"
 
 extern char *optarg;
 static BIO  *bio_err = NULL;
@@ -127,22 +128,36 @@ void main_loop(SSL_CTX *ctx, int sock_s)
     fd_set wset;
     int maxfd;
     int temp;
+    struct timespec cur_time, last_chktime;
 
     FD_ZERO(&rset_bak);
     FD_ZERO(&wset_bak);
     FD_SET(sock_s, &rset_bak);
     maxfd = sock_s;
+
+    cur_time.tv_sec  = 0;
+    cur_time.tv_nsec = 0;
+    last_chktime.tv_sec  = 0;
+    last_chktime.tv_nsec = 0;
     while( 1 )
     {
         int sock_c;
         int n;
         struct timeval timeout;
+        struct timespec ts_begin, ts_end, ts;
 
         rset = rset_bak;
         wset = wset_bak;
         timeout.tv_sec = 1;
         timeout.tv_usec = 0;
+
+        clock_gettime(CLOCK_REALTIME, &ts_begin);
         n = select(maxfd + 1, &rset, &wset, NULL, &timeout);
+        clock_gettime(CLOCK_REALTIME, &ts_end);
+
+        //将 select() 等待的时间加到 cur_time
+        cur_time = fftime_add(cur_time, fftime_sub(ts_end, ts_begin));
+
         if(n == 0)
         {
             for(int i = 0; i <= maxfd; ++i)
@@ -175,7 +190,7 @@ void main_loop(SSL_CTX *ctx, int sock_s)
             }
         }
         if(n <= 0)
-            continue;
+            goto close_timeout_conn;
 
         temp = maxfd;
         if(FD_ISSET(sock_s, &rset))
@@ -206,6 +221,7 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                 conns[sock_c].processor.reset();
                 conns[sock_c].in_buffer.clear();
                 conns[sock_c].out_buffer.clear();
+                conns[sock_c].tcp_accept_time = cur_time;
                 if(conns[sock_c].state == connection::state_close)
                 {
                     clean_up_connection(sock_c);
@@ -272,6 +288,29 @@ void main_loop(SSL_CTX *ctx, int sock_s)
             }
         }
         maxfd = temp;
+
+close_timeout_conn:
+        ts = fftime_sub(cur_time, last_chktime);
+        if(ts.tv_sec >= 1)
+        {
+            last_chktime = cur_time;
+            for(int i = 0; i <= maxfd; ++i)
+            {
+                if(conns[i].sockfd != -1 && conns[i].state == connection::state_accepting)
+                {
+                    struct timespec tmp;
+
+                    tmp = fftime_sub(cur_time, conns[i].tcp_accept_time);
+                    if(tmp.tv_sec >= server_cfg.get_timeout())
+                    {
+                        clean_up_connection(i);
+                        FD_CLR(i, &rset_bak);
+                        FD_CLR(i, &wset_bak);
+                        fprintf(stderr, "close, %d\n\n", i);
+                    }
+                }
+            }
+        }
     }
 }
 

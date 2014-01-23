@@ -246,3 +246,47 @@ uint64_t hton64(uint64_t host)
     }
     return u;
 }
+
+/* a + b */
+struct timespec fftime_add(struct timespec a, struct timespec b)
+{
+    struct timespec c;
+    long t;
+
+    t = a.tv_nsec + b.tv_nsec;
+    c.tv_sec = a.tv_sec + b.tv_sec + t / 1000000000L;
+    c.tv_nsec = t % 1000000000L;
+    return c;
+}
+
+/* 如果 a >= b，则返回 a - b；否则，返回 0 */
+struct timespec fftime_sub(struct timespec a, struct timespec b)
+{
+    struct timespec c;
+
+    c.tv_sec  = 0;
+    c.tv_nsec = 0;
+    if(a.tv_sec < b.tv_sec)
+        return c;
+    if(a.tv_sec == b.tv_sec)
+    {
+        if(a.tv_nsec <= b.tv_nsec)
+            return c;
+        c.tv_nsec = a.tv_nsec - b.tv_nsec;
+        return c;
+    }
+    else
+    {
+        if(a.tv_nsec < b.tv_nsec)
+        {
+            c.tv_sec  = a.tv_sec - b.tv_sec - 1;
+            c.tv_nsec = 1000000000L - b.tv_nsec + a.tv_nsec;
+        }
+        else
+        {
+            c.tv_sec  = a.tv_sec  - b.tv_sec;
+            c.tv_nsec = a.tv_nsec - b.tv_nsec;
+        }
+        return c;
+    }
+}
