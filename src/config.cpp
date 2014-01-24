@@ -17,6 +17,7 @@ server_config::server_config()
 void server_config::reset()
 {
     this->max_connection = 256;
+    this->timeout = 30;
     this->backup_root[0] = '\0';
     this->protocol = server_config::sslv3;
     snprintf(this->host, host_max, "0.0.0.0");
@@ -136,6 +137,24 @@ bool server_config::read_config(const char *path)
                     this->max_connection = 1024;
                 fprintf(stderr, "max_connection=%d\n", this->max_connection);
             }
+            else if(strncmp(key, "timeout", key_len) == 0)
+            {
+                char timeout[16];
+                if(value_len >= sizeof(timeout))
+                {
+                    fprintf(stderr, "read_config: timeout too long(line %d)\n",
+                            (int)line_num);
+                    return false;
+                }
+                content.get(timeout, 0, value_len);
+                timeout[value_len] = '\0';
+                this->timeout = atoi(timeout);
+                if(this->timeout < 2)
+                    this->timeout = 2;
+                if(this->timeout > 60)
+                    this->timeout = 60;
+                fprintf(stderr, "timeout=%d\n", this->timeout);
+            }
             else if(strncmp(key, "protocol", key_len) == 0)
             {
                 char protocol[16];
@@ -223,7 +242,7 @@ const char *server_config::get_key_file_password() const
 
 int server_config::get_timeout() const
 {
-    return 10;
+    return this->timeout;
 }
 
 server_config::~server_config()
