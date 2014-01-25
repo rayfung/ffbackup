@@ -18,6 +18,8 @@ bool rm_recursive(const std::string &path);
 bool copy_file(const std::string &src_path, const std::string &dst_path);
 struct timespec fftime_add(struct timespec a, struct timespec b);
 struct timespec fftime_sub(struct timespec a, struct timespec b);
+int fcntl_write_lock(int fd);
+int fcntl_unlock(int fd);
 
 uint16_t ntoh16(uint16_t net);
 

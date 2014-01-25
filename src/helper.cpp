@@ -290,3 +290,27 @@ struct timespec fftime_sub(struct timespec a, struct timespec b)
         return c;
     }
 }
+
+//通过 fcntl 来为整个文件加锁或者解锁
+int fcntl_lock_wrapper(int fd, int type)
+{
+    struct flock lock;
+
+    lock.l_type   = type;
+    lock.l_start  = 0;
+    lock.l_len    = 0;
+    lock.l_whence = SEEK_SET;
+    return fcntl(fd, F_SETLK, &lock);
+}
+
+//加上互斥写锁
+int fcntl_write_lock(int fd)
+{
+    return fcntl_lock_wrapper(fd, F_WRLCK);
+}
+
+//解除文件上的所有锁
+int fcntl_unlock(int fd)
+{
+    return fcntl_lock_wrapper(fd, F_UNLCK);
+}
