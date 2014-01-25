@@ -184,7 +184,6 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                         clean_up_connection(i);
                         FD_CLR(i, &rset_bak);
                         FD_CLR(i, &wset_bak);
-                        fprintf(stderr, "close, %d\n\n", i);
                     }
                 }
             }
@@ -283,7 +282,6 @@ void main_loop(SSL_CTX *ctx, int sock_s)
                     clean_up_connection(i);
                     FD_CLR(i, &rset_bak);
                     FD_CLR(i, &wset_bak);
-                    fprintf(stderr, "close, %d r=%d w=%d\n\n", i, (int)r_ok, (int)w_ok);
                 }
             }
         }
@@ -306,7 +304,6 @@ close_timeout_conn:
                         clean_up_connection(i);
                         FD_CLR(i, &rset_bak);
                         FD_CLR(i, &wset_bak);
-                        fprintf(stderr, "close, %d\n\n", i);
                     }
                 }
             }
