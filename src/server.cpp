@@ -33,6 +33,7 @@ const char *config_path = "/etc/ffbackup/server.conf";
 server_config server_cfg;
 connection *conns;
 ff_sched::task_scheduler *g_task_sched;
+int g_lockfd;
 
 static void set_nonblocking(int sockfd)
 {
@@ -367,6 +368,22 @@ int main( int argc, char **argv )
     if(chdir(server_cfg.get_backup_root()) == -1)
     {
         perror("chdir");
+        exit(EXIT_FAILURE);
+    }
+
+    //在备份目录下创建一个锁文件，并试图获取整个文件的互斥锁
+    //这里使用的是 fcntl 来创建文件锁
+    //而且 g_lockfd 在进程结束（包括崩溃）的情况下会自动由内核关闭
+    //同时，这个文件上的互斥锁也会自动释放
+    g_lockfd = open("lock", O_RDWR | O_CREAT, 0660);
+    if(g_lockfd < 0)
+    {
+        perror("open(\"lock\")");
+        exit(EXIT_FAILURE);
+    }
+    if(fcntl_write_lock(g_lockfd) < 0)
+    {
+        perror("fcntl_write_lock");
         exit(EXIT_FAILURE);
     }
 
