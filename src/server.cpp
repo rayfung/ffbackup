@@ -387,6 +387,9 @@ int main( int argc, char **argv )
         exit(EXIT_FAILURE);
     }
 
+    //检查各个项目是否存在 corruption，有则修复
+    ffstorage::storage_check();
+
     g_task_sched = new ff_sched::task_scheduler(2);
 
     conns = new connection[server_cfg.get_max_connection()];

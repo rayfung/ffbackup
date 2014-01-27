@@ -473,4 +473,95 @@ void end_restore(const std::string &prj)
     rm_recursive(prj + "/tmp");
 }
 
+/**
+ *
+ * 检查、修复 corruption
+ *
+ * (1) /history/#/info 完整：如果 /cache 目录存在，删除掉即可
+ * (2) /history/#/info 不完整：此时并未发生 corruption，重写 info 文件即可
+ * (3) /history/#/info 不存在：此时可能发生 corruption，必须重新备份一次
+ *
+ */
+void storage_check()
+{
+    size_t id;
+    std::string history_path;
+    std::list<std::string> prj_list;
+    std::list<std::string>::iterator prj;
+    size_t index;
+    std::list<file_info>::iterator iter;
+    std::list<file_info> patch_list;
+    std::list<file_info> deletion_list;
+    std::list<file_info> addition_list;
+
+    fprintf(stderr, "storage checking started\n");
+    prj_list = ffstorage::get_project_list();
+    for(prj = prj_list.begin(); prj != prj_list.end(); ++prj)
+    {
+        struct stat buf;
+
+        fprintf(stderr, "checking %s : ", prj->c_str());
+        fflush(stderr);
+        id = ffstorage::get_history_qty(*prj);
+        if(id == 0)
+            continue;
+        --id;
+        history_path = *prj + "/history/" + size2string(id);
+        if(lstat((history_path + "/info").c_str(), &buf) == 0)
+        {
+            if(S_ISREG(buf.st_mode) && buf.st_size == 4)
+            {
+                //info 完整，对应于(1)
+                if(lstat((*prj + "/cache").c_str(), &buf) == 0)
+                    rm_recursive(*prj + "/cache");
+                fprintf(stderr, "OK\n");
+            }
+            else
+            {
+                write_info(*prj, id); //info 存在但不完整，对应于(2)
+                fprintf(stderr, "history information repaired\n");
+            }
+            continue;
+        }
+
+        //info 不存在，对应于(3)
+        fprintf(stderr, "corruption detected");
+        fflush(stderr);
+
+        //删除残留的锁文件
+        rm_recursive(*prj + "/lock.0");
+        rm_recursive(*prj + "/lock.1");
+
+        _read_list(history_path + "/patch_list", &patch_list);
+        _read_list(history_path + "/deletion_list", &deletion_list);
+        _read_list(history_path + "/addition_list", &addition_list);
+
+        //将 patch 后的文件移动到 current 目录中
+        index = 0;
+        for(iter = patch_list.begin(); iter != patch_list.end(); ++iter)
+        {
+            rename((history_path + "/rc/" + size2string(index)).c_str(),
+                   (*prj + "/current/" + iter->path).c_str());
+            ++index;
+        }
+        //递归删除列表中的文件
+        for(iter = deletion_list.begin(); iter != deletion_list.end(); ++iter)
+            rm_recursive(*prj + "/current/" + iter->path);
+        //将新增的文件复制到相应目录下
+        index = 0;
+        for(iter = addition_list.begin(); iter != addition_list.end(); ++iter)
+        {
+            if(iter->type == 'f')
+                copy_file(history_path + "/" + size2string(index),
+                          *prj + "/current/" + iter->path);
+            else if(iter->type == 'd')
+                mkdir((*prj + "/current/" + iter->path).c_str(), 0775);
+            ++index;
+        }
+        ffstorage::write_info(*prj, id);
+        fprintf(stderr, ", repaired\n");
+    }
+    fprintf(stderr, "storage checking done!\n");
+}
+
 }
