@@ -1094,27 +1094,6 @@ int client_restore::update(connection *conn)
     }
 }
 
-no_operation::no_operation()
-{
-}
-
-no_operation::~no_operation()
-{
-}
-
-int no_operation::update(connection *conn)
-{
-    char buf[256];
-    size_t count;
-    while(conn->in_buffer.get_size() > 0)
-    {
-        count = conn->in_buffer.get(buf, 0, sizeof(buf));
-        conn->in_buffer.pop_front(count);
-        conn->out_buffer.push_back(buf, count);
-    }
-    return FF_AGAIN;
-}
-
 ffprotocol::ffprotocol()
 {
     this->event = FF_ON_READ;
@@ -1165,10 +1144,6 @@ void ffprotocol::update(connection *conn)
         task.version = hdr[0];
         switch(hdr[1])
         {
-            case 0x00:
-                task.cmd = new no_operation();
-                task.initial_event = FF_ON_READ;
-                break;
             case 0x01:
                 task.cmd = new start_backup();
                 task.initial_event = FF_ON_READ;

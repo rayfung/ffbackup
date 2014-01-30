@@ -262,14 +262,6 @@ private:
     uint64_t file_size;
 };
 
-class no_operation : public ffcmd
-{
-public:
-    no_operation();
-    ~no_operation();
-    int update(connection *conn);
-};
-
 class fftask
 {
 public:
