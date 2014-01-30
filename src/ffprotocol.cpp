@@ -69,6 +69,18 @@ ffcmd::~ffcmd()
 {
 }
 
+/**
+ *
+ * [1] start_backup
+ *
+ * 描述：客户端开始一次备份，发送备份项目名称
+ * 参数：项目名称（String）
+ * 返回：List<文件相对路径（String）；文件类型（char）>
+ * 错误：无，该操作一定成功
+ * 说明：项目名称不可以为空并且不可以包含以下字符：斜杠（/）、点（.）
+ *
+ */
+
 start_backup::start_backup()
 {
 }
@@ -142,6 +154,16 @@ int start_backup::update(connection *conn)
     }
     return FF_DONE;
 }
+
+/**
+ *
+ * [2] get_hash
+ *
+ * 描述：获取文件哈希值（SHA-1）
+ * 参数：List<文件相对路径（String）>
+ * 返回：List<SHA-1（20字节）>
+ *
+ */
 
 get_hash_task::get_hash_task(const std::string &prj, const std::list<std::string> &file_list)
 {
@@ -266,6 +288,16 @@ int get_hash::update(connection *conn)
     }
 }
 
+/**
+ *
+ * [3] get_signature
+ *
+ * 描述：获取文件rsync签名
+ * 参数：List<文件相对路径（String）>
+ * 返回：List<rsync签名（var）>
+ *
+ */
+
 get_sig_task::get_sig_task(const std::string &prj, const std::string &path)
 {
     this->file_path = path;
@@ -387,6 +419,15 @@ int get_signature::update(connection *conn)
     }
 }
 
+/**
+ *
+ * [4] send_delta
+ *
+ * 描述：发送差异数据
+ * 参数：List<文件相对路径（String）；差异数据（var）>
+ *
+ */
+
 send_delta::send_delta()
 {
     this->state = state_recv_size;
@@ -484,6 +525,15 @@ int send_delta::update(connection *conn)
     return FF_DONE;
 }
 
+/**
+ *
+ * [5] send_deletion
+ *
+ * 描述：发送（-）文件列表
+ * 参数：List<文件相对路径（String）>
+ *
+ */
+
 send_deletion::send_deletion()
 {
     this->state = state_recv_size;
@@ -544,6 +594,15 @@ int send_deletion::update(connection *conn)
     }
     return FF_DONE;
 }
+
+/**
+ *
+ * [6] send_addition
+ *
+ * 描述：发送（+）文件列表及其数据（如果是普通文件的话）
+ * 参数：List<文件相对路径（String）；文件类型（char）；[文件数据（var）]>
+ *
+ */
 
 send_addition::send_addition()
 {
@@ -651,6 +710,15 @@ int send_addition::update(connection *conn)
     }
     return FF_DONE;
 }
+
+/**
+ *
+ * [7] finish_backup
+ *
+ * 描述：通知服务端可以结束备份了，客户端在接收到服务端的确认后可以认为备份已经成功完成，
+ *      并且客户端应该主动关闭连接
+ *
+ */
 
 finish_bak_task::finish_bak_task(
         const std::string &prj, uint64_t task_id,
@@ -768,6 +836,15 @@ int finish_backup::update(connection *conn)
     return FF_DONE;
 }
 
+/**
+ *
+ * [8] client_get_prj
+ *
+ * 描述：客户端获取可恢复的项目名称列表
+ * 返回：List<项目名称(String)>
+ *
+ */
+
 client_get_prj::client_get_prj()
 {
 }
@@ -793,6 +870,17 @@ int client_get_prj::update(connection *conn)
     }
     return FF_DONE;
 }
+
+/**
+ *
+ * [9] client_get_time_line
+ *
+ * 描述：客户端获取指定项目的历史记录
+ * 参数：项目名称(String)
+ * 返回：List<备份序号(uint32_t)；备份完成时间(uint32_t)>
+ * 说明：备份序号是唯一标识一次备份的标识，备份完成时间是UNIX时间戳，单位是秒
+ *
+ */
 
 client_get_time_line::client_get_time_line()
 {
@@ -830,6 +918,18 @@ int client_get_time_line::update(connection *conn)
     }
     return FF_DONE;
 }
+
+/**
+ *
+ * [10] client_restore
+ *
+ * 描述：客户端请求恢复数据
+ * 参数：项目名称(String)；备份序号(uint32_t)
+ * 返回：List<文件路径(String)；文件类型(char)；[文件数据(var)]>
+ * 说明：文件路径是相对于项目的备份目录的相对路径，
+ *      文件类型只有两种（f-普通文件、d-目录），目录没有文件数据这一项
+ *
+ */
 
 client_restore_task::client_restore_task(const std::string &prj, uint32_t id,
                                          uint64_t task_id)
@@ -1026,6 +1126,7 @@ ffprotocol::~ffprotocol()
     this->reset();
 }
 
+//执行队列中的任务
 void ffprotocol::execute_task(connection *conn)
 {
     int ret;
@@ -1047,6 +1148,7 @@ void ffprotocol::execute_task(connection *conn)
 
 void ffprotocol::update(connection *conn)
 {
+    //实际上，在当前的实现中，队列中最多只有一个元素
     if(this->task_queue.size() > 0)
         this->execute_task(conn);
     else
