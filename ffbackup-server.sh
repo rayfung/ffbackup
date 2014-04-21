@@ -35,10 +35,10 @@ SCRIPTNAME=/etc/init.d/$NAME
 #
 do_start()
 {
-	# Return
-	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
+    # Return
+    #   0 if daemon has been started
+    #   1 if daemon was already running
+    #   2 if daemon could not be started
     su ffbackup -s /bin/sh -c "$DAEMON $DAEMON_ARGS"
 }
 
@@ -47,38 +47,38 @@ do_start()
 #
 do_stop()
 {
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
-	#   other if a failure occurred
+    # Return
+    #   0 if daemon has been stopped
+    #   1 if daemon was already stopped
+    #   2 if daemon could not be stopped
+    #   other if a failure occurred
     killall "$DAEMON"
 }
 
 case "$1" in
   start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	do_start
-	case "$?" in
-		0) log_end_msg 0 ;;
-		*) log_end_msg 1 ;;
-	esac
-	;;
+    log_daemon_msg "Starting $DESC" "$NAME"
+    do_start
+    case "$?" in
+        0) log_end_msg 0 ;;
+        *) log_end_msg 1 ;;
+    esac
+    ;;
   stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case "$?" in
-		0) log_end_msg 0 ;;
-		*) log_end_msg 1 ;;
-	esac
-	;;
+    log_daemon_msg "Stopping $DESC" "$NAME"
+    do_stop
+    case "$?" in
+        0) log_end_msg 0 ;;
+        *) log_end_msg 1 ;;
+    esac
+    ;;
   status)
        status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
        ;;
   *)
-	echo "Usage: $SCRIPTNAME {start|stop|status}" >&2
-	exit 3
-	;;
+    echo "Usage: $SCRIPTNAME {start|stop|status}" >&2
+    exit 3
+    ;;
 esac
 
 :
