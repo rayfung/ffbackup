@@ -39,7 +39,7 @@ do_start()
 	#   0 if daemon has been started
 	#   1 if daemon was already running
 	#   2 if daemon could not be started
-    sudo -u ffbackup "$DAEMON" "$DAEMON_ARGS"
+    su ffbackup -s /bin/sh -c "$DAEMON $DAEMON_ARGS"
 }
 
 #
