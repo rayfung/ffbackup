@@ -427,7 +427,7 @@ bool _restore(const std::string &project_name,
     {
         std::string path(storage_path + "/" + iter->path);
         if(iter->type == 'f')
-            copy_file(history_path + "/" + size2string(index), path);
+            link_or_copy(history_path + "/" + size2string(index), path);
         else if(iter->type == 'd')
             mkdir(path.c_str(), 0775);
         ++index;
@@ -552,7 +552,7 @@ void storage_check()
         for(iter = addition_list.begin(); iter != addition_list.end(); ++iter)
         {
             if(iter->type == 'f')
-                copy_file(history_path + "/" + size2string(index),
+                link_or_copy(history_path + "/" + size2string(index),
                           *prj + "/current/" + iter->path);
             else if(iter->type == 'd')
                 mkdir((*prj + "/current/" + iter->path).c_str(), 0775);

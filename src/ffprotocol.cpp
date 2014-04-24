@@ -772,7 +772,7 @@ void finish_bak_task::run()
     for(iter = this->addition_list.begin(); iter != this->addition_list.end(); ++iter)
     {
         if(iter->type == 'f')
-            copy_file(history_path + "/" + size2string(index),
+            link_or_copy(history_path + "/" + size2string(index),
                       project_name + "/current/" + iter->path);
         else if(iter->type == 'd')
             mkdir((project_name + "/current/" + iter->path).c_str(), 0775);

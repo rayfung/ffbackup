@@ -161,6 +161,15 @@ bool rm_recursive(const std::string &path)
     return true;
 }
 
+/* 首先尝试创建硬链接，如果失败，则直接复制文件 */
+bool link_or_copy(const std::string &src_path, const std::string &dst_path)
+{
+    rm_recursive(dst_path);
+    if(link(src_path.c_str(), dst_path.c_str()) < 0)
+        return copy_file(src_path, dst_path);
+    return true;
+}
+
 /* 复制文件，如果目标路径已经存在，那么它会先被清空 */
 bool copy_file(const std::string &src_path, const std::string &dst_path)
 {
