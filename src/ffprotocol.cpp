@@ -764,6 +764,7 @@ void finish_bak_task::run()
                (project_name + "/current/" + iter->path).c_str());
         ++index;
     }
+    rmdir((history_path + "/rc").c_str());
     //递归删除列表中的文件
     for(iter = this->deletion_list.begin(); iter != this->deletion_list.end(); ++iter)
         rm_recursive(project_name + "/current/" + iter->path);

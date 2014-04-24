@@ -544,6 +544,7 @@ void storage_check()
                    (*prj + "/current/" + iter->path).c_str());
             ++index;
         }
+        rmdir((history_path + "/rc").c_str());
         //递归删除列表中的文件
         for(iter = deletion_list.begin(); iter != deletion_list.end(); ++iter)
             rm_recursive(*prj + "/current/" + iter->path);
