@@ -498,12 +498,19 @@ int send_delta::update(connection *conn)
                 conn->in_buffer.pop_front(size);
                 if(size == 0)
                     return FF_AGAIN;
-                write(this->file_fd, buffer, size);
+                if(write(this->file_fd, buffer, size) != (ssize_t)size)
+                    return FF_ERROR;
                 this->data_size -= size;
             }
-            close(this->file_fd);
+            if(close(this->file_fd) == -1)
+            {
+                this->file_fd = -1;
+                return FF_ERROR;
+            }
             this->file_fd = -1;
-            ffstorage::end_delta(conn->processor.project_name, this->path, index);
+            if(ffstorage::end_delta(conn->processor.project_name, this->path, index)
+                    == false)
+                return FF_ERROR;
             this->state = state_item_done;
             break;
 
@@ -513,7 +520,12 @@ int send_delta::update(connection *conn)
             if(this->size == 0)
             {
                 char hdr[2] = {2, 0};
-                ffstorage::write_patch_list(conn->processor.project_name, this->file_list);
+                bool ok;
+
+                ok = ffstorage::write_patch_list(
+                            conn->processor.project_name, this->file_list);
+                if(!ok)
+                    return FF_ERROR;
                 conn->processor.patch_list = this->file_list;
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
@@ -582,8 +594,11 @@ int send_deletion::update(connection *conn)
             if(this->size == 0)
             {
                 char hdr[2] = {2, 0};
+                bool ok;
 
-                ffstorage::write_del_list(conn->processor.project_name, this->file_list);
+                ok = ffstorage::write_del_list(conn->processor.project_name, this->file_list);
+                if(!ok)
+                    return FF_ERROR;
                 conn->processor.deletion_list = this->file_list;
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
@@ -684,10 +699,15 @@ int send_addition::update(connection *conn)
                 conn->in_buffer.pop_front(size);
                 if(size == 0)
                     return FF_AGAIN;
-                write(this->file_fd, buffer, size);
+                if(write(this->file_fd, buffer, size) != (ssize_t)size)
+                    return FF_ERROR;
                 this->data_size -= size;
             }
-            close(this->file_fd);
+            if(close(this->file_fd) == -1)
+            {
+                this->file_fd = -1;
+                return FF_ERROR;
+            }
             this->file_fd = -1;
             ffstorage::end_add(conn->processor.project_name, this->path);
             this->state = state_item_done;
@@ -699,7 +719,11 @@ int send_addition::update(connection *conn)
             if(this->size == 0)
             {
                 char hdr[2] = {2, 0};
-                ffstorage::write_add_list(conn->processor.project_name, this->file_list);
+                bool ok;
+
+                ok = ffstorage::write_add_list(conn->processor.project_name, this->file_list);
+                if(!ok)
+                    return FF_ERROR;
                 conn->processor.addition_list = this->file_list;
                 conn->out_buffer.push_back(hdr, 2);
                 return FF_DONE;
@@ -751,17 +775,18 @@ void finish_bak_task::run()
     id = ffstorage::get_history_qty(this->project_name);
     history_path = project_name + "/history/" + size2string(id);
     if(rename((project_name + "/cache").c_str(), history_path.c_str()) < 0)
-    {
-        ff_unlock(this->project_name, this->task_id);
-        return;
-    }
+        goto fail;
 
     //将 patch 后的文件移动到 current 目录中
     index = 0;
     for(iter = this->patch_list.begin(); iter != this->patch_list.end(); ++iter)
     {
-        rename((history_path + "/rc/" + size2string(index)).c_str(),
+        int ret;
+
+        ret = rename((history_path + "/rc/" + size2string(index)).c_str(),
                (project_name + "/current/" + iter->path).c_str());
+        if(ret == -1)
+            goto fail;
         ++index;
     }
     rmdir((history_path + "/rc").c_str());
@@ -772,16 +797,24 @@ void finish_bak_task::run()
     index = 0;
     for(iter = this->addition_list.begin(); iter != this->addition_list.end(); ++iter)
     {
+        bool ok;
+
         if(iter->type == 'f')
-            link_or_copy(history_path + "/" + size2string(index),
+            ok = link_or_copy(history_path + "/" + size2string(index),
                       project_name + "/current/" + iter->path);
         else if(iter->type == 'd')
-            mkdir((project_name + "/current/" + iter->path).c_str(), 0775);
+            ok = (0 == mkdir((project_name + "/current/" + iter->path).c_str(), 0775));
+        else
+            ok = false;
+        if(!ok)
+            goto fail;
         ++index;
     }
-    ffstorage::write_info(project_name, id);
+    if(ffstorage::write_info(project_name, id) == false)
+        goto fail;
     this->finished = true;
 
+fail:
     ff_unlock(this->project_name, this->task_id);
 }
 

@@ -59,9 +59,11 @@ bool ff_trylock(const std::string &project_name, uint64_t id)
     {
         uint32_t count = 1;
         lseek(fd, 0, SEEK_SET);
-        write(fd, &id, 8);
-        write(fd, &count, 4);
         ok = true;
+        if(write(fd, &id, 8) != 8)
+            ok = false;
+        if(write(fd, &count, 4) != 4)
+            ok = false;
     }
     else
     {
@@ -69,15 +71,18 @@ bool ff_trylock(const std::string &project_name, uint64_t id)
         {
             uint32_t count;
             lseek(fd, 0, SEEK_SET);
-            write(fd, &id, 8);
-            count = 1 + *(uint32_t *)(buffer + 8);
-            write(fd, &count, 4);
             ok = true;
+            if(write(fd, &id, 8) != 8)
+                ok = false;
+            count = 1 + *(uint32_t *)(buffer + 8);
+            if(write(fd, &count, 4) != 4)
+                ok = false;
         }
         else ok = false;
     }
 
-    close(fd);
+    if(close(fd) < 0)
+        ok = false;
     _unlock(lock_0);
     return ok;
 }

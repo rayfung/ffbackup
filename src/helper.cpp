@@ -176,6 +176,7 @@ bool copy_file(const std::string &src_path, const std::string &dst_path)
     int src_fd, dst_fd;
     char buffer[1024];
     ssize_t ret;
+    bool ok = true;
 
     src_fd = open(src_path.c_str(), O_RDONLY);
     if(src_fd < 0)
@@ -190,12 +191,19 @@ bool copy_file(const std::string &src_path, const std::string &dst_path)
 
     while((ret = read(src_fd, buffer, sizeof(buffer))) > 0)
     {
-        write(dst_fd, buffer, ret);
+        if(write(dst_fd, buffer, ret) != ret)
+        {
+            close(src_fd);
+            close(dst_fd);
+            return false;
+        }
     }
 
-    close(src_fd);
-    close(dst_fd);
-    return true;
+    if(close(src_fd) < 0)
+        ok = false;
+    if(close(dst_fd) < 0)
+        ok = false;
+    return ok;
 }
 
 int get_byte_order()

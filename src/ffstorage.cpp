@@ -221,11 +221,21 @@ bool _write_list(const std::list<file_info> &file_list, std::string path)
         return false;
     for(iter = file_list.begin(); iter != file_list.end(); ++iter)
     {
-        fputc(iter->type, fp);
-        fwrite(iter->path.c_str(), iter->path.size() + 1, 1, fp);
+        size_t ret;
+
+        if(fputc(iter->type, fp) == EOF)
+        {
+            fclose(fp);
+            return false;
+        }
+        ret = fwrite(iter->path.c_str(), iter->path.size() + 1, 1, fp);
+        if(ret != 1)
+        {
+            fclose(fp);
+            return false;
+        }
     }
-    fclose(fp);
-    return true;
+    return (fclose(fp) == 0);
 }
 
 bool write_patch_list(const std::string &project_name, const std::list<file_info> &file_list)
@@ -278,15 +288,18 @@ bool write_info(const std::string &project_name, size_t index)
     std::string path;
     int fd;
     uint32_t net_time;
+    bool ok = true;
 
     path = project_name + "/history/" + size2string(index) + "/info";
     fd = creat(path.c_str(), 0644);
     if(fd < 0)
         return false;
     net_time = hton32(time(NULL));
-    write(fd, &net_time, 4);
-    close(fd);
-    return true;
+    if(write(fd, &net_time, 4) != 4)
+        ok = false;
+    if(close(fd) < 0)
+        ok = false;
+    return ok;
 }
 
 std::list<std::string> get_project_list()
@@ -410,8 +423,16 @@ bool _restore(const std::string &project_name,
         basis = storage_path + "/" + iter->path;
         patch = history_path + "/patch." + size2string(index);
         output = project_name + "/tmp_ffbackup";
-        rsync_patch(basis, patch, output);
-        rename(output.c_str(), basis.c_str());
+        if(rsync_patch(basis, patch, output) == false)
+        {
+            rm_recursive(output);
+            return false;
+        }
+        if(rename(output.c_str(), basis.c_str()) < 0)
+        {
+            rm_recursive(output);
+            return false;
+        }
         ++index;
     }
 
@@ -426,10 +447,16 @@ bool _restore(const std::string &project_name,
     for(iter = addition_list.begin(); iter != addition_list.end(); ++iter)
     {
         std::string path(storage_path + "/" + iter->path);
+        bool ok;
+
         if(iter->type == 'f')
-            link_or_copy(history_path + "/" + size2string(index), path);
+            ok = link_or_copy(history_path + "/" + size2string(index), path);
         else if(iter->type == 'd')
-            mkdir(path.c_str(), 0775);
+            ok = (0 == mkdir(path.c_str(), 0775));
+        else
+            ok = false;
+        if(!ok)
+            return false;
         ++index;
     }
     return true;
