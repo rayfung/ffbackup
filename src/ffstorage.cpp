@@ -464,6 +464,52 @@ bool _restore(const std::string &project_name,
 
 /**
  *
+ * 从第 id 号历史开始，反向查找完整备份，遇到第一个完整备份则停止查找并返回
+ * 如果找到了，则返回 true，并设置 full_id；否则，返回 false
+ *
+ */
+bool find_prev_full_bak(const std::string &prj, size_t id, size_t *full_id)
+{
+    size_t i;
+
+    for(i = id; i >= 0; --i)
+    {
+        if(is_full_bak(prj, i))
+        {
+            *full_id = i;
+            return true;
+        }
+        if(i == 0)
+            break; //avoid size_t integer underflow
+    }
+    return false;
+}
+
+//将 src_dir 目录下的所有文件“复制”到 dst_dir 目录下
+bool link_or_copy_recursive(const std::string &src_dir, const std::string &dst_dir)
+{
+    std::list<file_info> tmp_list;
+    std::list<file_info>::iterator iter;
+
+    _scan_dir(src_dir + "/", std::string(), &tmp_list);
+    for(iter = tmp_list.begin(); iter != tmp_list.end(); ++iter)
+    {
+        bool ok;
+
+        if(iter->type == 'f')
+            ok = link_or_copy(src_dir + "/" + iter->path, dst_dir + "/" + iter->path);
+        else if(iter->type == 'd')
+            ok = (0 == mkdir((dst_dir + "/" + iter->path).c_str(), 0775));
+        else
+            ok = false;
+        if(!ok)
+            return false;
+    }
+    return true;
+}
+
+/**
+ *
  * 恢复到历史 #id，并将恢复后的文件列表存入 file_list
  * 如果恢复发生错误，则返回空字符串，否则返回恢复的目录路径
  *
@@ -473,6 +519,7 @@ std::string begin_restore(const std::string &prj, size_t id, std::list<file_info
     std::string base = prj + "/tmp";
     size_t count;
     size_t index;
+    size_t full_id; //最近一次完整备份的 ID
 
     file_list->clear();
     rm_recursive(base);
@@ -486,7 +533,35 @@ std::string begin_restore(const std::string &prj, size_t id, std::list<file_info
         scan(prj.c_str(), file_list);
         return prj + "/current";
     }
-    for(index = 0; index <= id; ++index)
+
+    index = 0;
+    //寻找最近一次完整备份
+    if(find_prev_full_bak(prj, id, &full_id))
+    {
+        if(id == full_id)
+        {
+            //要恢复的历史刚好是完整备份，直接返回
+            std::string path;
+
+            path = prj + "/history/" + size2string(id) + "/full";
+            _scan_dir(path + "/", std::string(), file_list);
+            return path;
+        }
+        else
+        {
+            //先将完整备份复制到 tmp 目录下
+            bool ok;
+
+            ok = link_or_copy_recursive(prj + "/history/" + size2string(full_id) + "/full",
+                                        base);
+            if(ok)
+                index = full_id + 1;
+            else
+                return std::string();
+        }
+    }
+
+    for(; index <= id; ++index)
     {
         if(!_restore(prj, base, prj + "/history/" + size2string(index)))
             return std::string();

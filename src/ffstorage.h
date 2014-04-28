@@ -37,6 +37,7 @@ std::list<std::string> get_project_list();
 std::list<uint32_t> get_project_time_line(const std::string &project_name);
 std::string begin_restore(const std::string &prj, size_t id, std::list<file_info> *file_list);
 void end_restore(const std::string &prj);
+bool is_full_bak(const std::string &prj, size_t index);
 bool should_do_full_bak(const std::string &prj, size_t index);
 bool incremental_to_full(const std::string &prj, size_t index);
 void storage_check();
