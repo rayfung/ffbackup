@@ -6,6 +6,8 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <string.h>
 #include "helper.h"
 
 #define FF_LITTLE_ENDIAN 0
@@ -131,6 +133,49 @@ uint64_t get_file_size(FILE *fp)
     if(fstat(fileno(fp), &buf) < 0)
         return 0;
     return buf.st_size;
+}
+
+uint64_t get_file_size_by_name(const char *path)
+{
+    struct stat buf;
+
+    if(lstat(path, &buf) < 0)
+        return 0;
+    return buf.st_size;
+}
+
+uint64_t disk_usage(const std::string &dir)
+{
+    DIR *dp;
+    struct dirent *entry;
+    struct stat statbuf;
+    uint64_t size = 0;
+
+    dp = opendir(dir.c_str());
+    if(dp == NULL)
+        return 0;
+    while((entry = readdir(dp)) != NULL)
+    {
+        std::string path;
+
+        path = dir + "/" + std::string(entry->d_name);
+        if(lstat(path.c_str(), &statbuf) < 0)
+            continue;
+        if(S_ISDIR(statbuf.st_mode))
+        {
+            if(strcmp(".", entry->d_name) == 0 ||
+                    strcmp("..", entry->d_name) == 0)
+                continue;
+
+            size += disk_usage(path);
+        }
+        else if(S_ISREG(statbuf.st_mode))
+        {
+            size += get_file_size_by_name(path.c_str());
+        }
+    }
+    closedir(dp);
+    return size;
 }
 
 std::string size2string(size_t size)

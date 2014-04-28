@@ -500,6 +500,104 @@ void end_restore(const std::string &prj)
     rm_recursive(prj + "/tmp");
 }
 
+//判断该次历史是否是完整备份
+bool is_full_bak(const std::string &prj, size_t index)
+{
+    struct stat buf;
+
+    if(lstat((prj + "/history/" + size2string(index) + "/full").c_str(), &buf) < 0)
+        return false;
+    if(S_ISDIR(buf.st_mode))
+        return true;
+    else
+        return false;
+}
+
+bool should_do_full_bak(const std::string &prj, size_t index)
+{
+    uint64_t inc_size = 0;
+    uint64_t full_size = 0;
+    std::string path;
+
+    for(; index > 0; --index)
+    {
+        path = prj + "/history/" + size2string(index);
+        if(is_full_bak(prj, index))
+        {
+            full_size = disk_usage(path);
+            break;
+        }
+        else
+            inc_size += disk_usage(path);
+    }
+    if(index == 0)
+    {
+        //0 号历史被认为是完整备份
+        path = prj + "/history/0";
+        full_size = disk_usage(path);
+    }
+    return (inc_size > full_size);
+}
+
+//将增量备份历史转换为完整备份
+//暂时只能将最新的历史转换为完整备份
+bool incremental_to_full(const std::string &prj, size_t index)
+{
+    std::list<file_info> patch_list;
+    std::list<file_info> addition_list;
+    std::string history_path;
+    std::list<file_info> full_list;
+    std::list<file_info>::iterator iter;
+    std::string dest_dir;
+    std::string dest_path;
+    int fd;
+
+    //step 1: copy files from "current/" to "history/#/full/"
+
+    history_path = prj + "/history/" + size2string(index);
+    dest_path = history_path + "/full";
+    dest_dir = dest_path + "/";
+    rm_recursive(dest_path);
+    mkdir(dest_path.c_str(), 0755);
+    ffstorage::scan(prj.c_str(), &full_list);
+    for(iter = full_list.begin(); iter != full_list.end(); ++iter)
+    {
+        bool ok;
+
+        if(iter->type == 'f')
+            ok = link_or_copy(prj + "/current/" + iter->path, dest_dir + iter->path);
+        else if(iter->type == 'd')
+            ok = (0 == mkdir((dest_dir + iter->path).c_str(), 0775));
+        else
+            ok = false;
+        if(!ok)
+            goto fail;
+    }
+    fd = creat((history_path + "/full.done").c_str(), 0664);
+    if(fd == -1)
+        goto fail;
+    close(fd);
+
+    //step 2: remove incremental files (including patches)
+    if(!_read_list(history_path + "/patch_list", &patch_list))
+        goto fail;
+    if(!_read_list(history_path + "/addition_list", &addition_list))
+        goto fail;
+    for(size_t i = 0; i < patch_list.size(); ++i)
+        rm_recursive(history_path + "/patch." + size2string(i));
+    for(size_t i = 0; i < addition_list.size(); ++i)
+        //files of 'd' type are not exist
+        rm_recursive(history_path + "/" + size2string(i));
+    rm_recursive(history_path + "/addition_list");
+    rm_recursive(history_path + "/deletion_list");
+    rm_recursive(history_path + "/patch_list");
+
+    return true;
+fail:
+    rm_recursive(dest_path);
+    return false;
+}
+
 /**
  *
  * 检查、修复 corruption
@@ -527,12 +625,18 @@ void storage_check()
     {
         struct stat buf;
 
-        fprintf(stderr, "checking %s : ", prj->c_str());
-        fflush(stderr);
+        //删除残留的锁文件
+        rm_recursive(*prj + "/lock.0");
+        rm_recursive(*prj + "/lock.1");
+
         id = ffstorage::get_history_qty(*prj);
         if(id == 0)
             continue;
         --id;
+
+        fprintf(stderr, "checking %s : ", prj->c_str());
+        fflush(stderr);
+
         history_path = *prj + "/history/" + size2string(id);
         if(lstat((history_path + "/info").c_str(), &buf) == 0)
         {
@@ -555,9 +659,20 @@ void storage_check()
         fprintf(stderr, "corruption detected");
         fflush(stderr);
 
-        //删除残留的锁文件
-        rm_recursive(*prj + "/lock.0");
-        rm_recursive(*prj + "/lock.1");
+        if(lstat((history_path + "/full").c_str(), &buf) == 0)
+        {
+            if(lstat((history_path + "/full.done").c_str(), &buf) == 0)
+            {
+                //此时，已经转换为完整备份，可以删掉多余的增量文件
+            }
+            else
+            {
+                //full.done 不存在，直接删除 full
+                //TODO: 也可以重新转换为完整备份
+                rm_recursive(history_path + "/full");
+            }
+            goto final;
+        }
 
         _read_list(history_path + "/patch_list", &patch_list);
         _read_list(history_path + "/deletion_list", &deletion_list);
@@ -586,6 +701,8 @@ void storage_check()
                 mkdir((*prj + "/current/" + iter->path).c_str(), 0775);
             ++index;
         }
+
+final:
         ffstorage::write_info(*prj, id);
         fprintf(stderr, ", repaired\n");
     }

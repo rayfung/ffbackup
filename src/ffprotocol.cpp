@@ -810,6 +810,11 @@ void finish_bak_task::run()
             goto fail;
         ++index;
     }
+    if(ffstorage::should_do_full_bak(project_name, id))
+    {
+        //这里不需要检查是否转换成功，因为如果失败了，会保持原来的状态（增量备份）
+        ffstorage::incremental_to_full(project_name, id);
+    }
     if(ffstorage::write_info(project_name, id) == false)
         goto fail;
     this->finished = true;

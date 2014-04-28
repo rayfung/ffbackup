@@ -21,6 +21,7 @@ struct timespec fftime_add(struct timespec a, struct timespec b);
 struct timespec fftime_sub(struct timespec a, struct timespec b);
 int fcntl_write_lock(int fd);
 int fcntl_unlock(int fd);
+uint64_t disk_usage(const std::string &dir);
 
 uint16_t ntoh16(uint16_t net);
 
