@@ -7,7 +7,7 @@
 class server_config
 {
 public:
-    enum protocol{sslv3, tlsv1};
+    enum protocol{tlsv1};
 
 public:
     server_config();

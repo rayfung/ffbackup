@@ -19,7 +19,7 @@ void server_config::reset()
     this->max_connection = 256;
     this->timeout = 30;
     this->backup_root[0] = '\0';
-    this->protocol = server_config::sslv3;
+    this->protocol = server_config::tlsv1;
     snprintf(this->host, host_max, "0.0.0.0");
     snprintf(this->service, service_max, "16903");
     snprintf(this->ca_file, path_max, "ca.crt");
@@ -166,9 +166,7 @@ bool server_config::read_config(const char *path)
                 }
                 content.get(protocol, 0, value_len);
                 protocol[value_len] = '\0';
-                if(strcmp(protocol, "sslv3") == 0)
-                    this->protocol = sslv3;
-                else if(strcmp(protocol, "tlsv1") == 0)
+                if(strcmp(protocol, "tlsv1") == 0)
                     this->protocol = tlsv1;
                 else
                 {

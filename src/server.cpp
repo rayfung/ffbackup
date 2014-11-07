@@ -60,7 +60,7 @@ SSL_CTX *init_ssl(int argc, char **argv)
     if ( server_cfg.get_protocol() == server_config::tlsv1 )
         meth = TLSv1_method();
     else
-        meth = SSLv23_method();
+        meth = TLSv1_method();
 
     ctx = SSL_CTX_new( meth );
 
